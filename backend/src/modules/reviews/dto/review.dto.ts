@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class CreateReviewDto {
   /** A completed order that contains the store/product being reviewed. */
@@ -27,4 +27,11 @@ export class UpdateReviewDto {
   @IsString()
   @MaxLength(2000)
   comment?: string;
+}
+
+export class CreateReplyDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  comment: string;
 }

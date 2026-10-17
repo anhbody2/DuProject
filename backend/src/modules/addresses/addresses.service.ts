@@ -50,9 +50,16 @@ export class AddressesService {
     return this.update(userId, id, { isDefault: true });
   }
 
-  async remove(userId: number, id: number) {
-    const address = await this.findOne(userId, id);
-    await address.destroy();
+  /** Placed orders keep their own snapshot (orders.delivery_address), so deleting is always safe. */
+  remove(userId: number, id: number) {
+    return this.sequelize.transaction(async (transaction) => {
+      const address = await this.findOne(userId, id);
+      await address.destroy({ transaction });
+      if (!address.isDefault) return;
+      // Keep one default while any address is left: the newest one takes over.
+      const next = await this.addresses.findOne({ where: { userId }, order: [['id', 'DESC']], transaction });
+      await next?.update({ isDefault: true }, { transaction });
+    });
   }
 
   private clearDefault(userId: number, transaction: Transaction, exceptId?: number) {

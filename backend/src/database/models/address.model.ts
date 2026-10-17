@@ -1,6 +1,19 @@
 import { BelongsTo, Column, DataType, ForeignKey, Model, Table } from 'sequelize-typescript';
 import { User } from './user.model';
 
+/** Copy of an address frozen onto an order at checkout (orders.delivery_address). */
+export interface AddressSnapshot {
+  label: string | null;
+  recipientName: string;
+  phone: string;
+  addressLine: string;
+  ward: string | null;
+  district: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 @Table({ tableName: 'addresses', underscored: true })
 export class Address extends Model {
   @Column({ type: DataType.BIGINT, primaryKey: true, autoIncrement: true })
@@ -42,4 +55,9 @@ export class Address extends Model {
 
   @BelongsTo(() => User)
   user?: User;
+
+  toSnapshot(): AddressSnapshot {
+    const { label, recipientName, phone, addressLine, ward, district, city, latitude, longitude } = this;
+    return { label, recipientName, phone, addressLine, ward, district, city, latitude, longitude };
+  }
 }

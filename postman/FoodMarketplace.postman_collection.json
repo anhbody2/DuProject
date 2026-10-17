@@ -8,6 +8,18 @@
     {
       "key": "sfx",
       "value": ""
+    },
+    {
+      "key": "sizeSId",
+      "value": ""
+    },
+    {
+      "key": "store2Id",
+      "value": ""
+    },
+    {
+      "key": "product3Id",
+      "value": ""
     }
   ],
   "item": [
@@ -1500,15 +1512,16 @@
       "name": "05 Stores",
       "item": [
         {
-          "name": "Customer creates store -> 403",
+          "name": "Customer creates store -> 201",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"POST /stores -> 403\", () => pm.response.to.have.status(403));",
-                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                  "pm.test(\"POST /stores -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"starts pending\", () => pm.expect(j.status).to.eql(\"pending\"));"
                 ]
               }
             }
@@ -1537,12 +1550,48 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Nope\"\n}",
+              "raw": "{\n  \"name\": \"Cust Store {{sfx}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
+            }
+          }
+        },
+        {
+          "name": "Customer promoted to member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET /me -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"role member\", () => pm.expect(j.role).to.eql(\"member\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ],
+              "query": []
             }
           }
         },
@@ -2480,7 +2529,10 @@
                 "exec": [
                   "pm.test(\"POST /products -> 201\", () => pm.response.to.have.status(201));",
                   "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
-                  "pm.collectionVariables.set(\"productId\", j.id);"
+                  "pm.collectionVariables.set(\"productId\", j.id);",
+                  "const size = ((j && j.optionGroups) || []).find(g => g.name === \"Kích cỡ\");",
+                  "pm.test(\"default size group S/M\", () => pm.expect(size.options.map(o => o.name)).to.eql([\"S\", \"M\"]));",
+                  "if (size) pm.collectionVariables.set(\"sizeSId\", size.options.find(o => o.name === \"S\").id);"
                 ]
               }
             }
@@ -4017,6 +4069,334 @@
           }
         },
         {
+          "name": "Second store: owner creates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /stores -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.collectionVariables.set(\"store2Id\", j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stores"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Store B {{sfx}}\",\n  \"phone\": \"0900000003\",\n  \"categoryIds\": [\n    {{categoryId}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Second store: admin approves",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"PATCH /stores/{{store2Id}}/status -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stores/{{store2Id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stores",
+                "{{store2Id}}",
+                "status"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Second store: owner adds a dish",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /products -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.collectionVariables.set(\"product3Id\", j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storeId\": {{store2Id}},\n  \"categoryId\": {{categoryId}},\n  \"name\": \"Bun {{sfx}}\",\n  \"price\": 40000,\n  \"stock\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add dish from store 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /cart/items -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"cart.store is store 1\", () => pm.expect(j.store.id).to.eql(Number(pm.collectionVariables.get(\"storeId\"))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "items"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": {{productId}},\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add dish from another store -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /cart/items -> 409\", () => pm.response.to.have.status(409));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"code CART_STORE_CONFLICT\", () => pm.expect(j.code).to.eql(\"CART_STORE_CONFLICT\"));",
+                  "pm.test(\"names the cart's store\", () => pm.expect(j.cartStore.id).to.eql(Number(pm.collectionVariables.get(\"storeId\"))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "items"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": {{product3Id}},\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Replace cart with the other store's dish",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /cart/items -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"only the new dish\", () => pm.expect(j.items.map(i => i.productId)).to.eql([Number(pm.collectionVariables.get(\"product3Id\"))]));",
+                  "pm.test(\"cart.store is store 2\", () => pm.expect(j.store.id).to.eql(Number(pm.collectionVariables.get(\"store2Id\"))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "items"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": {{product3Id}},\n  \"quantity\": 1,\n  \"replaceCart\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Clear cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"DELETE /cart -> 204\", () => pm.response.to.have.status(204));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
           "name": "Re-add to cart",
           "event": [
             {
@@ -4154,7 +4534,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"deliveryAddressId\": {{addressId}},\n  \"paymentMethod\": \"cash\",\n  \"items\": [\n    {\n      \"productId\": {{product2Id}},\n      \"quantity\": 1\n    }\n  ]\n}",
+              "raw": "{\n  \"deliveryAddressId\": {{addressId}},\n  \"paymentMethod\": \"cash\",\n  \"items\": [\n    {\n      \"productId\": {{product2Id}},\n      \"quantity\": 1,\n      \"optionIds\": []\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4202,6 +4582,54 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"deliveryAddressId\": {{addressId}},\n  \"paymentMethod\": \"cash\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Checkout dishes from two stores -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST /orders -> 400\", () => pm.response.to.have.status(400));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"one store per order\", () => pm.expect(String(j.message)).to.match(/one store/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deliveryAddressId\": {{addressId}},\n  \"paymentMethod\": \"cash\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 1\n    },\n    {\n      \"productId\": {{product3Id}},\n      \"quantity\": 1\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4429,7 +4857,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"deliveryAddressId\": {{addressId}},\n  \"paymentMethod\": \"cash\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 99\n    }\n  ]\n}",
+              "raw": "{\n  \"deliveryAddressId\": {{addressId}},\n  \"paymentMethod\": \"cash\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 99,\n      \"optionIds\": [{{sizeSId}}]\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6314,7 +6742,1060 @@
       ]
     },
     {
-      "name": "14 Suspension & cleanup",
+      "name": "14 Chat",
+      "item": [
+        {
+          "name": "Chat without token -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/conversations -> 401\", () => pm.response.to.have.status(401));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Chat with yourself -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/direct -> 400\", () => pm.response.to.have.status(400));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{customerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/direct",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "direct"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Chat with unknown user -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/direct -> 404\", () => pm.response.to.have.status(404));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 999999999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/direct",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "direct"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Search users (no email exposed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/users?q=owner_{{sfx}} -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"finds the owner\", () => pm.expect(j.map((u) => u.id)).to.include(pm.collectionVariables.get(\"ownerId\")));",
+                  "pm.test(\"no email\", () => j.forEach((u) => pm.expect(u).to.not.have.property(\"email\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/users?q=owner_{{sfx}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "owner_{{sfx}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Customer opens direct chat with owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/direct -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"peer is the owner\", () => pm.expect(j.peer.id).to.eql(pm.collectionVariables.get(\"ownerId\")));",
+                  "pm.collectionVariables.set(\"chatId\", j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{ownerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/direct",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "direct"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Owner opens the same chat (get-or-create)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/direct -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"same conversation\", () => pm.expect(j.id).to.eql(pm.collectionVariables.get(\"chatId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{customerId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/direct",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "direct"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Customer messages the store (-> owner chat)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/store/{{storeId}} -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"same conversation\", () => pm.expect(j.id).to.eql(pm.collectionVariables.get(\"chatId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/store/{{storeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "store",
+                "{{storeId}}"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Owner messages own store -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/store/{{storeId}} -> 400\", () => pm.response.to.have.status(400));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/store/{{storeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "store",
+                "{{storeId}}"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Customer sends message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/{{chatId}}/messages -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"trimmed\", () => pm.expect(j.body).to.eql(\"Quán còn mở không ạ?\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"  Quán còn mở không ạ?  \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{chatId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{chatId}}",
+                "messages"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Empty message -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/{{chatId}}/messages -> 400\", () => pm.response.to.have.status(400));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{chatId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{chatId}}",
+                "messages"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Unknown field -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/{{chatId}}/messages -> 400\", () => pm.response.to.have.status(400));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"hi\",\n  \"senderId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{chatId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{chatId}}",
+                "messages"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Owner unread count",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/unread -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"has unread\", () => pm.expect(j.count).to.be.at.least(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/unread",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "unread"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Owner conversation list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/conversations -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "const c = j.find((x) => x.id === pm.collectionVariables.get(\"chatId\"));",
+                  "pm.test(\"lists the chat with preview + unread\", () => { pm.expect(c.lastMessage.body).to.eql(\"Quán còn mở không ạ?\"); pm.expect(c.unread).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Owner reads messages",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/conversations/{{chatId}}/messages?limit=10 -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"oldest first, hasMore flag\", () => { pm.expect(j.items.at(-1).body).to.eql(\"Quán còn mở không ạ?\"); pm.expect(j.hasMore).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{chatId}}/messages?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{chatId}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner marks read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/{{chatId}}/read -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{chatId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{chatId}}",
+                "read"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Owner unread cleared",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/conversations/{{chatId}} -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"unread 0\", () => pm.expect(j.unread).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{chatId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{chatId}}"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Outsider reads chat -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/conversations/{{chatId}}/messages -> 404\", () => pm.response.to.have.status(404));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{chatId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{chatId}}",
+                "messages"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Customer opens support thread",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/support -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"support, no peer\", () => { pm.expect(j.type).to.eql(\"support\"); pm.expect(j.peer).to.eql(null); });",
+                  "pm.collectionVariables.set(\"supportChatId\", j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/support",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "support"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Admin cannot open own support -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/support -> 400\", () => pm.response.to.have.status(400));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/support",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "support"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Customer writes to support",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/{{supportChatId}}/messages -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Đơn của mình bị trễ\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{supportChatId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{supportChatId}}",
+                "messages"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Support inbox as customer -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/support -> 403\", () => pm.response.to.have.status(403));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/support",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "support"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Admin support inbox",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/support?limit=100 -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "const c = j.items.find((x) => x.id === pm.collectionVariables.get(\"supportChatId\"));",
+                  "pm.test(\"thread listed with customer + unread\", () => { pm.expect(c.peer.id).to.eql(pm.collectionVariables.get(\"customerId\")); pm.expect(c.unread).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/support?limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "support"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin replies",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/conversations/{{supportChatId}}/messages -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Dủ kiểm tra ngay nhé\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/conversations/{{supportChatId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "conversations",
+                "{{supportChatId}}",
+                "messages"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Admin opens support for customer (same thread)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"POST chat/support/{{customerId}} -> 201\", () => pm.response.to.have.status(201));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"same thread, read by the reply\", () => { pm.expect(j.id).to.eql(pm.collectionVariables.get(\"supportChatId\")); pm.expect(j.unread).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/support/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "support",
+                "{{customerId}}"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Customer sees the reply as unread",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"GET chat/unread -> 200\", () => pm.response.to.have.status(200));",
+                  "let j; try { j = pm.response.json(); } catch (e) { j = null; }",
+                  "pm.test(\"1 unread\", () => pm.expect(j.count).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/unread",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "unread"
+              ],
+              "query": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Suspension & cleanup",
       "item": [
         {
           "name": "Admin suspends staff user",

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user';
+import { StatsQueryDto } from '../admin/dto/admin.dto';
 import {
   AddStoreMemberDto,
   CreateStoreDto,
@@ -47,7 +48,7 @@ export class StoresController {
     return this.stores.findLocations(id);
   }
 
-  // ---- store_owner / admin (CheckRole in AppModule)
+  // ---- any signed-in user; customers are promoted to 'member'
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateStoreDto) {
     return this.stores.create(user, dto);
@@ -57,6 +58,15 @@ export class StoresController {
   @Get(':id/manage')
   findForManager(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
     return this.stores.findForManager(user, id);
+  }
+
+  @Get(':id/stats')
+  stats(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: StatsQueryDto,
+  ) {
+    return this.stores.stats(user, id, query.days);
   }
 
   @Patch(':id')

@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-food_marketplace}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -34,11 +34,25 @@ services:
       DB_NAME: ${DB_NAME:-food_marketplace}
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      VIETMAP_API_KEY: ${VIETMAP_API_KEY:-}
+      VIETMAP_TILE_KEY: ${VIETMAP_TILE_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       DELIVERY_FEE_PER_STORE: ${DELIVERY_FEE_PER_STORE:-15000}
       COMMISSION_RATE: ${COMMISSION_RATE:-0.1}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123}
+    volumes:
+      - uploads:/app/uploads
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     healthcheck:
@@ -49,11 +63,10 @@ services:
       start_period: 20s
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        # Next.js proxies /api to this URL (baked in at build time).
-        BACKEND_URL: http://backend:3000
+    build: ./frontend
+    environment:
+      # nginx serves the built SPA and proxies /api to this URL.
+      BACKEND_URL: http://backend:3000
     restart: unless-stopped
     depends_on:
       backend:
@@ -63,3 +76,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

@@ -12,13 +12,13 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   Max,
   MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
+import { IsImageUrl } from '../../../common/decorators/is-image-url.decorator';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 import { STORE_STATUSES } from '../../../database/models';
 import type { StoreStatus } from '../../../database/models';
@@ -73,11 +73,11 @@ export class CreateStoreDto {
   description?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsImageUrl()
   logoUrl?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsImageUrl()
   coverUrl?: string;
 
   @IsOptional()

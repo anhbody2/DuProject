@@ -13,6 +13,14 @@ export interface JwtPayload {
   role: UserRole;
 }
 
+/** Refresh tokens are signed with JWT_REFRESH_SECRET, so they never pass as access tokens. */
+export interface RefreshPayload {
+  sub: number;
+  typ: 'refresh';
+  /** Random id, so two tokens issued in the same second still differ. */
+  jti: string;
+}
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {

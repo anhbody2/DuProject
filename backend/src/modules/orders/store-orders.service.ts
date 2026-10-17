@@ -5,7 +5,6 @@ import { Sequelize } from 'sequelize-typescript';
 import { pageOptions, paginate } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user';
 import {
-  Address,
   Order,
   OrderItem,
   OrderItemOption,
@@ -74,10 +73,9 @@ export class StoreOrdersService {
     return [
       {
         model: Order,
-        attributes: ['id', 'status', 'createdAt'],
+        attributes: ['id', 'status', 'createdAt', 'deliveryAddress', 'note'],
         include: [
           { model: User, attributes: ['id', 'username'], include: [{ model: Profile, attributes: ['firstName', 'lastName', 'phone'] }] },
-          { model: Address },
         ],
       },
       { model: OrderItem, include: [OrderItemOption] },

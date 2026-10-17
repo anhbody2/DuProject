@@ -1,13 +1,31 @@
-'use client';
-
-import Image from 'next/image';
 import { motion, useReducedMotion, useScroll, useTransform, type HTMLMotionProps } from 'framer-motion';
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { LoaderCircle } from 'lucide-react';
-import { sx } from '@/lib/sx';
+import { Check, Circle, LoaderCircle } from 'lucide-react';
+import { PASSWORD_RULES } from '@/lib/validation';
+import { BandBody, BandShadow, CtaButton, EmptyBox, FieldError, FieldLabel, FillImg, ImgEmpty, PhotoBox, RuleList, SpinnerBox } from './styles';
 
-export const GRID3 = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,max(220px,calc((100% - 48px)/3))),1fr))';
-export const strokeHead = 'color:var(--gold);-webkit-text-stroke:2px var(--brown);paint-order:stroke fill;text-shadow:0 3px 0 var(--brown)';
+export * from './styles';
+
+/* ================================================================ brand surfaces */
+
+/** Red textured section with an angled edge and a brown drop shadow. */
+export function RedBand({ clip, pad, both, margin, children }: { clip: string; pad: string; both?: boolean; margin?: string; children: ReactNode }) {
+  return (
+    <BandShadow $both={both} $margin={margin}>
+      <BandBody $clip={clip} $pad={pad}>{children}</BandBody>
+    </BandShadow>
+  );
+}
+
+/* ================================================================ buttons */
+
+export function Cta({ onClick, rotate = -1.5, children, style, disabled, type = 'button' }: {
+  onClick?: () => void; rotate?: number; children: ReactNode; style?: CSSProperties; disabled?: boolean; type?: 'button' | 'submit';
+}) {
+  return <CtaButton type={type} onClick={onClick} disabled={disabled} $rotate={rotate} style={style}>{children}</CtaButton>;
+}
+
+/* ================================================================ motion */
 
 const EASE = [0.2, 0.8, 0.2, 1] as const;
 
@@ -50,71 +68,74 @@ export function Parallax({ speed, spin = 0, style, children }: { speed: number; 
   );
 }
 
+/* ================================================================ media */
+
 /** Red lunch-tray mat from the design assets, used as scattered decoration. */
 export function Tray({ style, rotate = 0, speed = 0.18 }: { style?: CSSProperties; rotate?: number; speed?: number }) {
   return (
     <Parallax speed={speed} spin={speed * 40} style={{ aspectRatio: '1/1', pointerEvents: 'none', ...style }}>
-      <Image src="/assets/tray.png" alt="" fill sizes="300px" style={{ objectFit: 'contain', transform: `rotate(${rotate}deg)`, filter: 'drop-shadow(0 20px 20px rgba(75,28,20,.3))' }} />
+      <FillImg src="/assets/tray.png" alt="" loading="lazy" style={{ transform: `rotate(${rotate}deg)`, filter: 'drop-shadow(0 20px 20px rgba(75,28,20,.3))' }} />
     </Parallax>
   );
 }
 
-export function Cta({ onClick, rotate = -1.5, children, style, disabled, type = 'button' }: {
-  onClick?: () => void; rotate?: number; children: ReactNode; style?: CSSProperties; disabled?: boolean; type?: 'button' | 'submit';
-}) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      className="hv-cta"
-      style={{
-        ...sx('all:unset;cursor:pointer;text-align:center;background:var(--green);color:var(--gold);font-weight:900;font-size:clamp(20px,2.4vw,30px);padding:10px 28px;outline:2px dashed var(--cream);outline-offset:-7px;box-shadow:0 0 0 4px var(--green),0 7px 0 4px var(--green-dark)'),
-        transform: `rotate(${rotate}deg)`,
-        ...style,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-/**
- * Product/store photo, or the striped placeholder when the API has none or it fails to load.
- * Remote URLs are entered by store owners, so the browser loads them directly
- * (`unoptimized`) instead of having the Next server fetch arbitrary hosts.
- */
-export function Photo({ src, alt, sizes = '300px', radius }: { src: string | null | undefined; alt: string; sizes?: string; radius?: string }) {
+/** Product/store photo, or the striped placeholder when the API has none or it fails to load. */
+export function Photo({ src, alt, radius }: { src: string | null | undefined; alt: string; radius?: string }) {
   const [failed, setFailed] = useState<string | null>(null);
   const ok = src && failed !== src;
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', borderRadius: radius }}>
-      {ok ? (
-        <Image src={src} alt={alt} fill sizes={sizes} unoptimized={/^https?:/.test(src)} onError={() => setFailed(src)} style={{ objectFit: 'cover' }} />
-      ) : (
-        <div className="img-empty"><span>{alt}</span></div>
-      )}
-    </div>
+    <PhotoBox $radius={radius}>
+      {ok ? <FillImg src={src} alt={alt} $fit="cover" loading="lazy" onError={() => setFailed(src)} /> : <ImgEmpty><span>{alt}</span></ImgEmpty>}
+    </PhotoBox>
   );
 }
 
+/* ================================================================ states */
+
 export function Spinner({ label = 'Đang tải…', color = 'var(--muted)' }: { label?: string; color?: string }) {
   return (
-    <div style={{ ...sx('display:flex;align-items:center;justify-content:center;gap:10px;padding:32px 0;font-size:14px;font-weight:700'), color }}>
+    <SpinnerBox $color={color} role="status">
       <LoaderCircle size={20} className="spin" /> {label}
-    </div>
+    </SpinnerBox>
   );
 }
 
 export function Empty({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
   return (
-    <div style={sx('padding:40px 16px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center')}>
-      <span style={sx('font-weight:900;font-size:22px;color:var(--red)')}>{title}</span>
-      {hint && <span style={sx('font-size:14px;color:var(--muted);max-width:420px;line-height:1.45')}>{hint}</span>}
+    <EmptyBox>
+      <b>{title}</b>
+      {hint && <span>{hint}</span>}
       {action}
-    </div>
+    </EmptyBox>
   );
 }
+
+/* ================================================================ forms */
+
+/** Labelled form field with its (live) validation error underneath. */
+export function FormField({ title, error, wide, children }: { title: string; error?: string; wide?: boolean; children: ReactNode }) {
+  return (
+    <FieldLabel $wide={wide}>
+      {title}
+      {children}
+      {error && <FieldError role="alert">{error}</FieldError>}
+    </FieldLabel>
+  );
+}
+
+/** Ticks off each password rule as the user types. */
+export function PasswordRules({ value, wide }: { value: string; wide?: boolean }) {
+  return (
+    <RuleList aria-live="polite" style={wide ? { gridColumn: '1 / -1' } : undefined}>
+      {PASSWORD_RULES.map((r) => {
+        const ok = r.test(value);
+        return <li key={r.label} data-ok={ok}>{ok ? <Check size={14} /> : <Circle size={10} />}{r.label}</li>;
+      })}
+    </RuleList>
+  );
+}
+
+/* ================================================================ icons */
 
 // Lucide v1 dropped brand icons.
 export const FacebookIcon = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (

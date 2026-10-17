@@ -1,8 +1,9 @@
 import { configureStore, createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
-import { api } from './api';
-import authReducer, { logout, persistAuth, setCredentials, setUser } from './authSlice';
-import uiReducer from './uiSlice';
+import { baseApi } from './api/baseApi';
+import { setupInterceptors } from './api/axiosClient';
+import authReducer, { logout, persistAuth, setCredentials, setUser } from './slices/authSlice';
+import uiReducer, { persistTheme, toggleTheme } from './slices/uiSlice';
 
 const listener = createListenerMiddleware();
 
@@ -16,22 +17,30 @@ listener.startListening({
 listener.startListening({
   matcher: isAnyOf(setCredentials, logout),
   effect: (_action, { dispatch }) => {
-    dispatch(api.util.resetApiState());
+    dispatch(baseApi.util.resetApiState());
   },
 });
 
-export const makeStore = () =>
-  configureStore({
-    reducer: { auth: authReducer, ui: uiReducer, [api.reducerPath]: api.reducer },
-    middleware: (getDefault) => getDefault().prepend(listener.middleware).concat(api.middleware),
-  });
+// Remember an explicit light/dark choice.
+listener.startListening({
+  actionCreator: toggleTheme,
+  effect: (_action, { getState }) => persistTheme((getState() as RootState).ui.theme),
+});
 
-export type AppStore = ReturnType<typeof makeStore>;
+export const store = configureStore({
+  reducer: { auth: authReducer, ui: uiReducer, [baseApi.reducerPath]: baseApi.reducer },
+  middleware: (getDefault) => getDefault().prepend(listener.middleware).concat(baseApi.middleware),
+});
+
+// axios reads the token from the store and logs out on 401.
+setupInterceptors(store, () => store.dispatch(logout()));
+
+export type AppStore = typeof store;
 export type RootState = ReturnType<AppStore['getState']>;
 export type AppDispatch = AppStore['dispatch'];
 
 export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
 export const useAppSelector = useSelector.withTypes<RootState>();
 
-/** Logged-in user, or null. False-y until the stored session is read. */
+/** Current session: `token` and `user` are null when logged out. */
 export const useAuth = () => useAppSelector((s) => s.auth);

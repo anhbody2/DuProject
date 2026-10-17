@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { User } from './types';
+import type { User } from '../types';
 
 const KEY = 'du.auth';
 
@@ -8,19 +8,38 @@ interface AuthState {
   user: User | null;
   /** Keep the session in localStorage (survives restarts) instead of sessionStorage. */
   remember: boolean;
-  /** False until the persisted session has been read on the client. */
-  hydrated: boolean;
 }
 
-const initialState: AuthState = { token: null, user: null, remember: true, hydrated: false };
+// --- persistence ---
+
+function readPersistedAuth(): Partial<AuthState> | null {
+  try {
+    const raw = localStorage.getItem(KEY) ?? sessionStorage.getItem(KEY);
+    if (!raw) return null;
+    const { token, user, remember } = JSON.parse(raw) as AuthState;
+    return { token, user, remember };
+  } catch {
+    return null;
+  }
+}
+
+export function persistAuth({ token, user, remember }: AuthState) {
+  try {
+    localStorage.removeItem(KEY);
+    sessionStorage.removeItem(KEY);
+    if (token) (remember ? localStorage : sessionStorage).setItem(KEY, JSON.stringify({ token, user, remember }));
+  } catch {
+    /* storage unavailable (private mode) - session just won't persist */
+  }
+}
+
+// The app is client-only, so the saved session is restored synchronously.
+const initialState: AuthState = { token: null, user: null, remember: true, ...readPersistedAuth() };
 
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    hydrate(state, { payload }: PayloadAction<Partial<AuthState> | null>) {
-      Object.assign(state, payload ?? {}, { hydrated: true });
-    },
     setCredentials(state, { payload }: PayloadAction<{ token: string; user: User; remember?: boolean }>) {
       state.token = payload.token;
       state.user = payload.user;
@@ -36,26 +55,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { hydrate, setCredentials, setUser, logout } = authSlice.actions;
+export const { setCredentials, setUser, logout } = authSlice.actions;
 export default authSlice.reducer;
-
-// --- persistence (browser only) ---
-
-export function readPersistedAuth(): Partial<AuthState> | null {
-  try {
-    const raw = localStorage.getItem(KEY) ?? sessionStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function persistAuth({ token, user, remember }: AuthState) {
-  try {
-    localStorage.removeItem(KEY);
-    sessionStorage.removeItem(KEY);
-    if (token) (remember ? localStorage : sessionStorage).setItem(KEY, JSON.stringify({ token, user, remember }));
-  } catch {
-    /* storage unavailable (private mode) - session just won't persist */
-  }
-}

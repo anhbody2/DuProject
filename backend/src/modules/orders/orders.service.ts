@@ -16,6 +16,7 @@ import {
   Cart,
   CartItem,
   Delivery,
+  FINISHED_ORDER_STATUSES,
   OptionGroup,
   Order,
   OrderItem,
@@ -35,6 +36,7 @@ import {
   UpdateDeliveryDto,
   UpdatePaymentStatusDto,
 } from './dto/order.dto';
+import { defaultOptionIds, resolveOptions } from '../products/product-options';
 import { OrderLifecycleService } from './order-lifecycle.service';
 
 interface PricedLine {
@@ -80,12 +82,16 @@ export class OrdersService {
 
       const cart = await this.carts.findOne({
         where: { userId: user.id },
-        include: [CartItem],
+        include: [{ model: CartItem, include: [{ model: ProductOption, attributes: ['id'] }] }],
         transaction,
       });
       const lines: CheckoutItemDto[] =
         dto.items ??
-        (cart?.items ?? []).map((i) => ({ productId: i.productId, quantity: i.quantity }));
+        (cart?.items ?? []).map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          optionIds: (i.options ?? []).map((o) => o.id),
+        }));
       if (!lines.length) throw new BadRequestException('Cart is empty');
 
       const products = await this.products.findAll({
@@ -96,9 +102,14 @@ export class OrdersService {
       const productsById = new Map(products.map((p) => [p.id, p]));
       const priced = lines.map((line) => this.priceLine(line, productsById.get(line.productId)));
 
+      // One order = one store (as the cart). Orders placed before this rule may still have several.
+      if (new Set(priced.map((l) => l.product.storeId)).size > 1) {
+        throw new BadRequestException('An order can only contain dishes from one store');
+      }
+
       await this.reserveStock(priced, transaction);
 
-      // Split into one store_order per store.
+      // One store_order per store: always exactly one for new orders.
       const byStore = new Map<number, PricedLine[]>();
       for (const line of priced) {
         const list = byStore.get(line.product.storeId) ?? [];
@@ -140,6 +151,8 @@ export class OrdersService {
         {
           userId: user.id,
           deliveryAddressId: address.id,
+          deliveryAddress: address.toSnapshot(),
+          note: dto.note || null,
           subtotal: fromCents(subtotal),
           deliveryFee: fromCents(deliveryFee),
           discount: 0,
@@ -180,6 +193,10 @@ export class OrdersService {
     const where: WhereOptions<Order> = {};
     if (user.role !== 'admin') Object.assign(where, { userId: user.id });
     if (query.status) Object.assign(where, { status: query.status });
+    else if (query.scope) {
+      const op = query.scope === 'history' ? Op.in : Op.notIn;
+      Object.assign(where, { status: { [op]: FINISHED_ORDER_STATUSES } });
+    }
 
     const { rows, count } = await this.orders.findAndCountAll({
       where,
@@ -187,11 +204,13 @@ export class OrdersService {
         {
           model: StoreOrder,
           separate: true,
-          include: [{ model: Store, attributes: ['id', 'name', 'slug', 'logoUrl'] }],
+          // paranoid: false - order history still names stores deleted since.
+          include: [{ model: Store, attributes: ['id', 'name', 'slug', 'logoUrl'], paranoid: false }],
         },
         { model: Delivery, attributes: ['id', 'status', 'estimatedAt', 'deliveredAt'] },
       ],
-      order: [['createdAt', 'DESC']],
+      // id breaks createdAt ties so page boundaries are stable while paging.
+      order: [['createdAt', 'DESC'], ['id', 'DESC']],
       distinct: true,
       ...pageOptions(query),
     });
@@ -213,7 +232,14 @@ export class OrdersService {
 
   async findDelivery(user: AuthUser, orderId: number) {
     await this.assertOwnOrder(user, orderId);
-    return this.deliveries.findOne({ where: { orderId }, include: [{ model: Address }] });
+    const delivery = await this.deliveries.findOne({
+      where: { orderId },
+      include: [{ model: Order, attributes: ['deliveryAddress'] }],
+    });
+    if (!delivery) return null;
+    // The destination lives on the order (snapshot), not on the saved address.
+    const { order, ...rest } = delivery.toJSON();
+    return { ...rest, deliveryAddress: order?.deliveryAddress ?? null };
   }
 
   /** Customer can cancel until any store starts preparing. */
@@ -276,25 +302,9 @@ export class OrdersService {
       throw new BadRequestException(`Product ${line.productId} is not available`);
     }
 
-    const optionIndex = new Map(
-      product.optionGroups!.flatMap((g) => g.options!.map((o) => [o.id, o] as const)),
-    );
-    const options = [...new Set(line.optionIds ?? [])].map((id) => {
-      const option = optionIndex.get(id);
-      if (!option) throw new BadRequestException(`Option ${id} does not belong to "${product.name}"`);
-      if (!option.isAvailable) throw new BadRequestException(`Option "${option.name}" is unavailable`);
-      return option;
-    });
-
-    for (const group of product.optionGroups!) {
-      const selected = options.filter((o) => o.optionGroupId === group.id).length;
-      const min = Math.max(group.minSelection, group.required ? 1 : 0);
-      if (selected < min || selected > group.maxSelection) {
-        throw new BadRequestException(
-          `"${product.name}" - "${group.name}" requires ${min}-${group.maxSelection} selection(s)`,
-        );
-      }
-    }
+    // Same rule as POST /cart/items: no optionIds = the first available option of each group
+    // that needs one (size S). An explicit list, even [], is validated as sent.
+    const options = resolveOptions(product, line.optionIds ?? defaultOptionIds(product));
 
     const unitPrice =
       toCents(product.salePrice ?? product.price) +
@@ -333,12 +343,11 @@ export class OrdersService {
   private detailIncludes(): Includeable[] {
     return [
       { model: User, attributes: ['id', 'username', 'email'] },
-      { model: Address },
       {
         model: StoreOrder,
         separate: true,
         include: [
-          { model: Store, attributes: ['id', 'name', 'slug', 'logoUrl', 'phone'] },
+          { model: Store, attributes: ['id', 'name', 'slug', 'logoUrl', 'phone'], paranoid: false },
           { model: OrderItem, include: [OrderItemOption] },
         ],
       },

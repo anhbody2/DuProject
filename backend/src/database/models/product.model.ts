@@ -12,11 +12,13 @@ import { OptionGroup } from './option-group.model';
 import { ProductImage } from './product-image.model';
 import { ProductReview } from './product-review.model';
 import { Store } from './store.model';
+import { validate } from 'class-validator';
 
 export const PRODUCT_STATUSES = ['active', 'inactive', 'out_of_stock'] as const;
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 
-@Table({ tableName: 'products', underscored: true })
+// paranoid: DELETE sets deleted_at; default queries skip deleted rows.
+@Table({ tableName: 'products', underscored: true, paranoid: true })
 export class Product extends Model {
   @Column({ type: DataType.BIGINT, primaryKey: true, autoIncrement: true })
   id: number;
@@ -38,7 +40,7 @@ export class Product extends Model {
   @Column(DataType.TEXT)
   description: string | null;
 
-  @Column({ type: DataType.DECIMAL(12, 2), allowNull: false })
+  @Column({ type: DataType.DECIMAL(12, 2), allowNull: false, validate: { min: 10000 } })
   price: number;
 
   @Column(DataType.DECIMAL(12, 2))
@@ -49,6 +51,8 @@ export class Product extends Model {
 
   @Column({ type: DataType.STRING(30), allowNull: false, defaultValue: 'active' })
   status: ProductStatus;
+
+  declare deletedAt: Date | null;
 
   @BelongsTo(() => Store)
   store?: Store;

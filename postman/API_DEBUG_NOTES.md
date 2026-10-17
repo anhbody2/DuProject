@@ -7,7 +7,7 @@
 
 | File | Purpose |
 |---|---|
-| `FoodMarketplace.postman_collection.json` | 152 requests / 185 assertions in 15 folders. Import it into Postman. |
+| `FoodMarketplace.postman_collection.json` | 178 requests / 228 assertions in 16 folders (chat: folder 14). Import it into Postman. |
 | `local.postman_environment.json` | `baseUrl = http://localhost:3000/api` |
 
 ### How to run

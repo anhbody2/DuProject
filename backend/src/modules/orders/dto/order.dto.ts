@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -16,6 +16,7 @@ import {
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 import {
   DELIVERY_STATUSES,
+  ORDER_NOTE_MAX_LENGTH,
   ORDER_STATUSES,
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
@@ -27,6 +28,8 @@ import type {
   PaymentStatus,
 } from '../../../database/models';
 
+const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+
 export class CheckoutItemDto {
   @IsInt()
   productId: number;
@@ -36,7 +39,10 @@ export class CheckoutItemDto {
   @Max(99)
   quantity: number;
 
-  /** Selected option ids (validated against the product's option groups). */
+  /**
+   * Selected option ids (validated against the product's option groups).
+   * Omitted = the defaults, as for POST /cart/items: the first available option of each required group.
+   */
   @IsOptional()
   @IsArray()
   @IsInt({ each: true })
@@ -51,8 +57,8 @@ export class CreateOrderDto {
   paymentMethod: PaymentMethod;
 
   /**
-   * Items to order. When omitted, the whole cart is checked out.
-   * Ordered products are removed from the cart either way.
+   * Items to order, all from one store (400 otherwise). When omitted, the whole cart is
+   * checked out. Ordered products are removed from the cart either way.
    */
   @IsOptional()
   @IsArray()
@@ -61,12 +67,27 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CheckoutItemDto)
   items?: CheckoutItemDto[];
+
+  /** Free-text note for the store / driver. Trimmed; blank is stored as NULL. */
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(ORDER_NOTE_MAX_LENGTH)
+  note?: string;
 }
+
+export const ORDER_SCOPES = ['active', 'history'] as const;
+export type OrderScope = (typeof ORDER_SCOPES)[number];
 
 export class ListOrdersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(ORDER_STATUSES)
   status?: OrderStatus;
+
+  /** active = still in progress, history = completed or cancelled. Ignored when `status` is set. */
+  @IsOptional()
+  @IsIn(ORDER_SCOPES)
+  scope?: OrderScope;
 }
 
 export class UpdateStoreOrderStatusDto {

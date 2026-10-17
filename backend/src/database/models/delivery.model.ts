@@ -42,7 +42,4 @@ export class Delivery extends Model {
 
   @BelongsTo(() => Order)
   order?: Order;
-
-  @BelongsTo(() => Address)
-  deliveryAddress?: Address;
 }

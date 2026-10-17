@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Đặt cơm phần từ các quán ruột trong xóm." />
+    <link rel="icon" href="/assets/logo.png" />
+    <title>Dủ — Cơm phần cho người bận rộn</title>
+    <script>
+      // Apply the saved (or system) theme before first paint to avoid a light flash.
+      try {
+        var t = localStorage.getItem('du.theme');
+        if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

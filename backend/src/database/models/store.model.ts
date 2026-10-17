@@ -19,7 +19,8 @@ import { User } from './user.model';
 export const STORE_STATUSES = ['pending', 'active', 'inactive', 'suspended'] as const;
 export type StoreStatus = (typeof STORE_STATUSES)[number];
 
-@Table({ tableName: 'stores', underscored: true })
+// paranoid: DELETE sets deleted_at; default queries skip deleted rows.
+@Table({ tableName: 'stores', underscored: true, paranoid: true })
 export class Store extends Model {
   @Column({ type: DataType.BIGINT, primaryKey: true, autoIncrement: true })
   id: number;
@@ -48,6 +49,8 @@ export class Store extends Model {
 
   @Column({ type: DataType.STRING(30), allowNull: false, defaultValue: 'pending' })
   status: StoreStatus;
+
+  declare deletedAt: Date | null;
 
   @BelongsTo(() => User, 'ownerId')
   owner?: User;

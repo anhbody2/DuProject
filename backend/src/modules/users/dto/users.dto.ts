@@ -6,6 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IsStrongPassword } from '../../../common/decorators/strong-password.decorator';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 import { USER_ROLES, USER_STATUSES } from '../../../database/models';
 import type { UserRole, UserStatus } from '../../../database/models';
@@ -35,9 +36,7 @@ export class ChangePasswordDto {
   @IsString()
   currentPassword: string;
 
-  @IsString()
-  @MinLength(8)
-  @MaxLength(72)
+  @IsStrongPassword()
   newPassword: string;
 }
 

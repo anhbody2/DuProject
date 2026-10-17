@@ -1,10 +1,10 @@
-'use client';
-
 import { useEffect, useMemo } from 'react';
 import L from 'leaflet';
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import { primaryLocation } from '@/lib/format';
-import type { Store } from '@/store/types';
+import { MapContainer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { DEFAULT_CENTER, primaryLocation } from '@/lib/format';
+import MapTiles from './MapTiles';
+import type { Store } from '@/redux/types';
+import { PopupBody, PopupKicker, PopupName, PopupAddress, PopupQuote, PopupFoot, Directions } from './styles';
 
 const pin = (bg: string, glyph: string) =>
   L.divIcon({
@@ -26,6 +26,15 @@ function FitBounds({ points, focus }: { points: [number, number][]; focus?: [num
   return null;
 }
 
+/** Brings a pin set from outside the map (e.g. an address search) into view; map clicks are already visible. */
+function FollowPick({ picked }: { picked?: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (picked && !map.getBounds().contains(picked)) map.setView(picked, 16);
+  }, [picked, map]);
+  return null;
+}
+
 function ClickToPick({ onPick }: { onPick?: (latlng: [number, number]) => void }) {
   useMapEvents({ click: (e) => onPick?.([e.latlng.lat, e.latlng.lng]) });
   return null;
@@ -37,9 +46,11 @@ export interface StoreMapProps {
   /** Location being chosen for a new store (shown as a dark pin). */
   picked?: [number, number] | null;
   onPick?: (latlng: [number, number]) => void;
+  /** CSS height of the map. */
+  height?: string;
 }
 
-export default function StoreMap({ stores, focusId, picked, onPick }: StoreMapProps) {
+export default function StoreMap({ stores, focusId, picked, onPick, height = 'clamp(320px,42vw,460px)' }: StoreMapProps) {
   const located = useMemo(
     () => stores.map((s) => ({ s, loc: primaryLocation(s) })).filter((x): x is { s: Store; loc: NonNullable<ReturnType<typeof primaryLocation>> } => !!x.loc),
     [stores],
@@ -49,30 +60,30 @@ export default function StoreMap({ stores, focusId, picked, onPick }: StoreMapPr
   const focus = focusLoc ? ([Number(focusLoc.latitude), Number(focusLoc.longitude)] as [number, number]) : undefined;
 
   return (
-    <MapContainer center={[10.788, 106.695]} zoom={14} scrollWheelZoom={false} style={{ height: 'clamp(320px,42vw,460px)', width: '100%' }}>
-      <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" maxZoom={19} />
+    <MapContainer center={DEFAULT_CENTER} zoom={14} scrollWheelZoom={false} style={{ height, width: '100%' }}>
+      <MapTiles />
       <FitBounds points={points} focus={focus} />
       <ClickToPick onPick={onPick} />
+      <FollowPick picked={picked} />
       {located.map(({ s, loc }) => (
         <Marker key={s.id} position={[Number(loc.latitude), Number(loc.longitude)]} icon={pin('#992428', glyphOf(s))}>
           <Popup maxWidth={270}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 210, maxWidth: 250 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#1d9563', letterSpacing: '.06em' }}>
-                {[s.categories?.[0]?.name?.toUpperCase(), loc.district].filter(Boolean).join(' · ')}
-              </span>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#992428', lineHeight: 1.15 }}>{s.name}</span>
-              <span style={{ fontSize: 12, color: '#7a6a4a' }}>{loc.addressLine}</span>
-              {s.description && <span style={{ fontSize: 13, lineHeight: 1.4 }}>“{s.description}”</span>}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '2px dashed #e3dbb8', paddingTop: 8, marginTop: 2 }}>
-                <a
+            <PopupBody>
+              <PopupKicker>
+                {[s.categories?.[0]?.name?.toUpperCase(), loc.ward ?? loc.district].filter(Boolean).join(' · ')}
+              </PopupKicker>
+              <PopupName>{s.name}</PopupName>
+              <PopupAddress>{loc.addressLine}</PopupAddress>
+              {s.description && <PopupQuote>“{s.description}”</PopupQuote>}
+              <PopupFoot>
+                <Directions
                   href={`https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`}
                   target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, fontWeight: 800, color: '#fff', background: '#2b1d2a', padding: '6px 10px' }}
                 >
                   Chỉ đường ↗
-                </a>
-              </div>
-            </div>
+                </Directions>
+              </PopupFoot>
+            </PopupBody>
           </Popup>
         </Marker>
       ))}

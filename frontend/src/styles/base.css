@@ -1,0 +1,65 @@
+/*
+ * Brand display face from the design assets. Its TTF draws glyphs ~2x their
+ * nominal size (caps reach 2.2em), so scale it to Lexend's proportions, which
+ * the design's font sizes and line-heights were laid out with. Keep the size-adjust.
+ */
+@font-face {
+  font-family: 'Cocogoose';
+  src: url('../fonts/NVN-Cocogoose-Vintage.ttf') format('truetype');
+  font-display: swap;
+  size-adjust: 50%;
+}
+
+:root {
+  --font: 'Cocogoose', 'Lexend', system-ui, sans-serif;
+  --font-body: 'Lexend', system-ui, sans-serif;
+}
+
+/* Before React mounts (and GlobalStyle injects the vars), match the saved theme. */
+html { background: #f6f4de; }
+html[data-theme='dark'] { background: #17100f; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; font-family: var(--font); overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+a { color: var(--green-text); text-decoration: none; }
+a:hover { color: var(--red-text); }
+input, select, textarea, button { font-family: inherit; color: inherit; }
+
+/* The brand face is all-caps; running text and form fields use Lexend for legibility. */
+p, input, textarea, select { font-family: var(--font-body); }
+button:disabled { cursor: not-allowed !important; opacity: .6; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--gold) !important; outline-offset: 2px; }
+
+/* ---------- Leaflet ---------- */
+.du-map .leaflet-popup-content-wrapper { border-radius: 0; border: 3px solid var(--edge); box-shadow: 6px 6px 0 var(--red); background: var(--surface); color: var(--text); }
+.du-map .leaflet-popup-content { margin: 14px 16px; font-family: var(--font); color: var(--text); }
+.du-map .leaflet-popup-tip { background: var(--edge); }
+.du-map .leaflet-container a.leaflet-popup-close-button { color: var(--text); }
+.du-map .leaflet-container { font-family: var(--font); background: var(--stripe-a); }
+/* Dark map tiles: invert the fallback raster map and turn the hues back.
+   VietMap's vector layer (.leaflet-gl-layer) switches to its own dark style instead. */
+html[data-theme='dark'] .du-map .leaflet-tile-pane:not(:has(.leaflet-gl-layer)) { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
+html[data-theme='dark'] .du-map .leaflet-control-attribution { background: rgba(0,0,0,.6); color: #b5a582; }
+html[data-theme='dark'] .du-map .leaflet-bar a { background: var(--surface); color: var(--text); border-color: var(--line); }
+
+/* ---------- antd toasts: bottom-centre, brand style ---------- */
+.ant-message { top: auto !important; bottom: 24px; }
+.ant-message .ant-message-notice-content {
+  font-weight: 800; font-size: 14px; max-width: 90vw; text-align: center;
+  border-radius: 0 !important; box-shadow: 0 6px 0 var(--green) !important;
+}
+
+/* ---------- keyframes ---------- */
+@keyframes duPop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+@keyframes duWiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+@keyframes duRoll { 0%, 100% { transform: translateX(0) rotate(0); } 30% { transform: translateX(-3px) rotate(-8deg); } 60% { transform: translateX(3px) rotate(6deg); } }
+@keyframes duNudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
+@keyframes duBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes duBeat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.25); } 30% { transform: scale(.95); } 45% { transform: scale(1.15); } 60% { transform: scale(1); } }
+@keyframes duSpin { to { transform: rotate(360deg); } }
+
+.spin { animation: duSpin 1s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *:hover { animation: none !important; }
+}

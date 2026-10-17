@@ -1,48 +1,109 @@
-'use client';
-
-import Image from 'next/image';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Search, ShoppingCart, User } from 'lucide-react';
-import { sx } from '@/lib/sx';
-import { useAppDispatch, useAuth } from '@/store';
-import { useCartQuery } from '@/store/api';
-import { setCartOpen, toggleSearch } from '@/store/uiSlice';
-
-const navLink = 'cursor:pointer;font-weight:800;font-size:14px;letter-spacing:.05em;color:var(--gold);padding:6px 0;border-bottom:2px solid transparent';
-const iconBtn = 'all:unset;cursor:pointer;width:40px;height:40px;display:grid;place-items:center;color:#1a0f10;position:relative';
+import { Link, useLocation } from 'react-router';
+import { Badge, Drawer, Tooltip } from 'antd';
+import { LayoutDashboard, Menu, Moon, Search, ShoppingCart, Store, Sun, User, X } from 'lucide-react';
+import { useAppDispatch, useAppSelector, useAuth } from '@/redux';
+import { useCartQuery } from '@/redux/api';
+import { setCartOpen, setNavOpen, toggleSearch, toggleTheme } from '@/redux/slices/uiSlice';
+import { IconButton } from '@/components/ui';
+import { Bar, Nav, NavLink, Logo, Icons, OnlyMobile, HideXs, DrawerBody, DrawerLink, DrawerAction } from './styles';
 
 export default function Header() {
-  const path = usePathname();
+  const { pathname } = useLocation();
   const dispatch = useAppDispatch();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const isOwner = user?.role === 'store_owner';
+  const { navOpen, theme } = useAppSelector((s) => s.ui);
   const { data: cart } = useCartQuery(undefined, { skip: !token });
   const account = token ? '/account' : '/login';
   const count = cart?.itemCount ?? 0;
+  const dark = theme === 'dark';
+  const closeNav = () => dispatch(setNavOpen(false));
 
-  const nav = (label: string, href: string) => (
-    <Link href={href} className="hv-white" style={{ ...sx(navLink), borderBottomColor: path === href ? 'var(--gold)' : 'transparent' }}>{label}</Link>
-  );
+  const links: [string, string][] = [['MENU', '/menu'], ['CHỢ XÓM', '/market'], ['ABOUT', '/'], ['JOIN IN', account]];
+  const nav = ([label, href]: [string, string]) => <NavLink key={label} to={href} $active={pathname === href}>{label}</NavLink>;
+  const ThemeIcon = dark ? Sun : Moon;
+  const themeLabel = dark ? 'Chế độ sáng' : 'Chế độ tối';
 
   return (
-    <header className="red-texture" style={sx('padding:18px clamp(16px,4vw,56px);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;position:relative;z-index:5')}>
-      <nav style={sx('display:flex;align-items:center;flex-wrap:wrap;gap:6px clamp(14px,2.6vw,36px)')}>
-        {nav('MENU', '/menu')}
-        {nav('CHỢ XÓM', '/market')}
-        <Link href="/" title="Dủ" className="hv-logo" style={{ display: 'block', lineHeight: 0 }}>
-          <Image src="/assets/logo.png" alt="Dủ" width={68} height={54} priority />
-        </Link>
-        {nav('ABOUT', '/')}
-        {nav('JOIN IN', account)}
-      </nav>
-      <div style={sx('display:flex;align-items:center;gap:14px')}>
-        <Link href={account} title="Tài khoản" className="hv-pop-gold" style={sx(iconBtn)}><User size={22} strokeWidth={2.4} /></Link>
-        <button onClick={() => dispatch(toggleSearch())} title="Tìm món" className="hv-wiggle-gold" style={sx(iconBtn)}><Search size={22} strokeWidth={2.4} /></button>
-        <button onClick={() => dispatch(setCartOpen(true))} title="Giỏ hàng" className="hv-roll-gold" style={sx(iconBtn)}>
-          <ShoppingCart size={24} strokeWidth={2.4} />
-          {count > 0 && <span style={sx('position:absolute;right:-4px;top:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--gold);color:var(--ink);font-size:11px;font-weight:900;display:grid;place-items:center;padding:0 5px;border:2px solid var(--red)')}>{count}</span>}
-        </button>
-      </div>
-    </header>
+    <>
+      <Bar>
+        <OnlyMobile>
+          <IconButton onClick={() => dispatch(setNavOpen(true))} aria-label="Mở menu" $anim="wiggle" $hoverColor="var(--gold)">
+            <Menu size={26} strokeWidth={2.6} />
+          </IconButton>
+        </OnlyMobile>
+
+        <Nav>
+          {links.slice(0, 2).map(nav)}
+          <Logo to="/" title="Dủ"><img src="/assets/logo.png" alt="Dủ" /></Logo>
+          {links.slice(2).map(nav)}
+        </Nav>
+
+        <Logo to="/" title="Dủ" $mobile><img src="/assets/logo.png" alt="Dủ" /></Logo>
+
+        <Icons>
+          {isAdmin && (
+            <HideXs>
+              <Tooltip title="Trang quản trị">
+                <IconButton as={Link} to="/admin" aria-label="Trang quản trị" $anim="pop" $hoverColor="var(--gold)"><LayoutDashboard size={22} strokeWidth={2.4} /></IconButton>
+              </Tooltip>
+            </HideXs>
+          )}
+          {isOwner && (
+            <HideXs>
+              <Tooltip title="Quán của tôi">
+                <IconButton as={Link} to="/my-store" aria-label="Quán của tôi" $anim="pop" $hoverColor="var(--gold)"><Store size={22} strokeWidth={2.4} /></IconButton>
+              </Tooltip>
+            </HideXs>
+          )}
+          <HideXs>
+            <Tooltip title="Tài khoản">
+              <IconButton as={Link} to={account} aria-label="Tài khoản" $anim="pop" $hoverColor="var(--gold)"><User size={22} strokeWidth={2.4} /></IconButton>
+            </Tooltip>
+          </HideXs>
+          <Tooltip title="Tìm món">
+            <IconButton onClick={() => dispatch(toggleSearch())} aria-label="Tìm món" $anim="wiggle" $hoverColor="var(--gold)"><Search size={22} strokeWidth={2.4} /></IconButton>
+          </Tooltip>
+          <Tooltip title={themeLabel}>
+            <IconButton onClick={() => dispatch(toggleTheme())} aria-label={themeLabel} $anim="pop" $hoverColor="var(--gold)"><ThemeIcon size={22} strokeWidth={2.4} /></IconButton>
+          </Tooltip>
+          <Tooltip title="Giỏ hàng">
+            <IconButton onClick={() => dispatch(setCartOpen(true))} aria-label="Giỏ hàng" $anim="roll" $hoverColor="var(--gold)">
+              <Badge
+                count={count}
+                overflowCount={99}
+                offset={[4, -4]}
+                color="var(--gold)"
+                styles={{ indicator: { color: 'var(--ink)', boxShadow: '0 0 0 2px var(--red)', fontFamily: 'var(--font)' } }}
+              >
+                <ShoppingCart size={24} strokeWidth={2.4} color="#1a0f10" />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+        </Icons>
+      </Bar>
+
+      <Drawer
+        open={navOpen}
+        onClose={closeNav}
+        placement="left"
+        size="min(340px, 86vw)"
+        closable={false}
+        styles={{ body: { padding: 0 }, section: { borderRight: '4px solid var(--edge)' } }}
+      >
+        <DrawerBody>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Link to="/" onClick={closeNav}><img src="/assets/logo.png" alt="Dủ" width={68} height={54} style={{ objectFit: 'contain' }} /></Link>
+            <IconButton onClick={closeNav} aria-label="Đóng menu" $anim="wiggle" $hoverColor="#fff" style={{ color: 'var(--gold)' }}><X size={26} strokeWidth={2.8} /></IconButton>
+          </div>
+          {links.map(([label, href]) => <DrawerLink key={label} to={href} onClick={closeNav} $active={pathname === href}>{label}</DrawerLink>)}
+          {isAdmin && <DrawerLink to="/admin" onClick={closeNav} $active={false}>QUẢN TRỊ</DrawerLink>}
+          {isOwner && <DrawerLink to="/my-store" onClick={closeNav} $active={false}>QUÁN CỦA TÔI</DrawerLink>}
+          <DrawerAction onClick={() => { closeNav(); dispatch(toggleSearch()); }}><Search size={20} /> Tìm món</DrawerAction>
+          <DrawerAction onClick={() => dispatch(toggleTheme())}><ThemeIcon size={20} /> {themeLabel}</DrawerAction>
+        </DrawerBody>
+      </Drawer>
+    </>
   );
 }

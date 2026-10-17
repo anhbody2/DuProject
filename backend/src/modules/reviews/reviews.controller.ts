@@ -14,7 +14,7 @@ import {
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user';
-import { CreateReviewDto, UpdateReviewDto } from './dto/review.dto';
+import { CreateReplyDto, CreateReviewDto, UpdateReviewDto } from './dto/review.dto';
 import { ReviewsService } from './reviews.service';
 
 @Controller()
@@ -57,6 +57,11 @@ export class ReviewsController {
     return this.reviews.listForProduct(id, query);
   }
 
+  @Get('products/:id/reviews/mine')
+  mineForProduct(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    return this.reviews.mineForProduct(user, id);
+  }
+
   @Post('products/:id/reviews')
   createForProduct(
     @CurrentUser() user: AuthUser,
@@ -79,5 +84,21 @@ export class ReviewsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   removeProductReview(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
     return this.reviews.remove('product', user, id);
+  }
+
+  // ---- replies to product reviews
+  @Post('product-reviews/:id/replies')
+  replyToProductReview(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateReplyDto,
+  ) {
+    return this.reviews.reply(user, id, dto);
+  }
+
+  @Delete('product-review-replies/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeProductReviewReply(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    return this.reviews.removeReply(user, id);
   }
 }

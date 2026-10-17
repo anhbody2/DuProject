@@ -1,6 +1,8 @@
-import { BelongsTo, Column, DataType, ForeignKey, Model, Table } from 'sequelize-typescript';
+import { BelongsTo, BelongsToMany, Column, DataType, ForeignKey, Model, Table } from 'sequelize-typescript';
 import { Cart } from './cart.model';
+import { CartItemOption } from './cart-item-option.model';
 import { Product } from './product.model';
+import { ProductOption } from './product-option.model';
 
 @Table({ tableName: 'cart_items', underscored: true })
 export class CartItem extends Model {
@@ -23,4 +25,7 @@ export class CartItem extends Model {
 
   @BelongsTo(() => Product)
   product?: Product;
+
+  @BelongsToMany(() => ProductOption, () => CartItemOption)
+  options?: ProductOption[];
 }

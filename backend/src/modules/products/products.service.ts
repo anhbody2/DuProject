@@ -2,8 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/sequelize';
 import { Includeable, Op, Order, Transaction, WhereOptions, literal } from 'sequelize';
 import { Sequelize } from 'sequelize-typescript';
+import { textMatch } from '../../common/utils/search';
 import { pageOptions, paginate } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user';
+import { categoryTreeSql } from '../../common/utils/category-tree';
 import { slugify } from '../../common/utils/slugify';
 import {
   CartItem,
@@ -14,7 +16,8 @@ import {
   ProductOption,
   Store,
 } from '../../database/models';
-import { StoreAccessService } from '../stores/store-access.service';
+import { ALL_MEMBERS, StoreAccessService } from '../stores/store-access.service';
+import { DEFAULT_SIZE_GROUP } from './product-options';
 import {
   CreateProductDto,
   ListProductsQueryDto,
@@ -24,6 +27,7 @@ import {
   UpdateOptionDto,
   UpdateOptionGroupDto,
   UpdateProductDto,
+  StoreProductsQueryDto,
   UpdateProductImageDto,
 } from './dto/product.dto';
 
@@ -55,8 +59,9 @@ export class ProductsService {
     const where: WhereOptions = { status: { [Op.in]: ['active', 'out_of_stock'] } };
     const and: unknown[] = [];
     if (query.storeId) Object.assign(where, { storeId: query.storeId });
-    if (query.categoryId) Object.assign(where, { categoryId: query.categoryId });
-    if (query.q) Object.assign(where, { name: { [Op.iLike]: `%${query.q}%` } });
+    // A parent category also matches products filed under its subcategories.
+    if (query.categoryId) and.push(literal(`"Product"."category_id" IN ${categoryTreeSql(query.categoryId)}`));
+    if (query.q) and.push(textMatch('Product.name', query.q));
     if (query.minPrice !== undefined) and.push(literal(`${EFFECTIVE_PRICE} >= ${Number(query.minPrice)}`));
     if (query.maxPrice !== undefined) and.push(literal(`${EFFECTIVE_PRICE} <= ${Number(query.maxPrice)}`));
     if (and.length) Object.assign(where, { [Op.and]: and });
@@ -86,6 +91,26 @@ export class ProductsService {
 
   // ---------------------------------------------------------------- store managers
 
+  /** Everything the store sells, hidden products included (unlike the public list). */
+  async findForStore(user: AuthUser, storeId: number, query: StoreProductsQueryDto) {
+    await this.access.assert(user, storeId, ALL_MEMBERS);
+    const where: WhereOptions<Product> = { storeId };
+    if (query.status) Object.assign(where, { status: query.status });
+    if (query.q) Object.assign(where, { [Op.and]: [textMatch('Product.name', query.q)] });
+
+    const { rows, count } = await this.products.findAndCountAll({
+      where,
+      include: [
+        { model: Category, attributes: ['id', 'name'] },
+        { model: ProductImage, separate: true, order: [['isPrimary', 'DESC'], ['sortOrder', 'ASC']] },
+      ],
+      order: [['createdAt', 'DESC']],
+      distinct: true,
+      ...pageOptions(query),
+    });
+    return paginate(rows, count, query);
+  }
+
   async create(user: AuthUser, dto: CreateProductDto) {
     await this.access.assert(user, dto.storeId);
     await this.assertCategory(dto.categoryId);
@@ -96,6 +121,8 @@ export class ProductsService {
       const product = await this.products.create(
         {
           ...dto,
+          // Every dish comes in S/M unless the owner defines its own options.
+          optionGroups: dto.optionGroups?.length ? dto.optionGroups : [DEFAULT_SIZE_GROUP],
           slug: await this.uniqueSlug(dto.storeId, dto.slug ?? slugify(dto.name), transaction),
           images: this.normalizeImages(dto.images ?? []),
         },
@@ -120,20 +147,20 @@ export class ProductsService {
       dto.slug = await this.uniqueSlug(product.storeId, dto.slug);
     }
 
-    // Keep status in sync with stock unless the caller sets the status explicitly.
-    const stock = dto.stock ?? product.stock;
-    if (!dto.status && product.status !== 'inactive') {
-      dto.status = stock > 0 ? 'active' : 'out_of_stock';
+    // A stock change keeps status in sync unless the caller sets the status explicitly.
+    // Other edits (description, price, ...) leave the current status alone.
+    if (dto.stock !== undefined && !dto.status && product.status !== 'inactive') {
+      dto.status = dto.stock > 0 ? 'active' : 'out_of_stock';
     }
 
     await product.update(dto);
     return this.findDetail(id);
   }
 
+  /** Soft delete: past orders keep their snapshots, but the dish leaves every cart. */
   async remove(user: AuthUser, id: number) {
     const product = await this.findManaged(user, id);
     await this.sequelize.transaction(async (transaction) => {
-      // cart_items -> products is ON DELETE RESTRICT, so clear carts first.
       await this.cartItems.destroy({ where: { productId: id }, transaction });
       await product.destroy({ transaction });
     });
@@ -290,7 +317,8 @@ export class ProductsService {
   private async uniqueSlug(storeId: number, base: string, transaction?: Transaction) {
     const root = base || 'product';
     let slug = root;
-    for (let i = 2; await this.products.count({ where: { storeId, slug }, transaction }); i++) {
+    // Deleted products still hold their slug in the unique index.
+    for (let i = 2; await this.products.count({ where: { storeId, slug }, paranoid: false, transaction }); i++) {
       slug = `${root}-${i}`;
     }
     return slug;

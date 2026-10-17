@@ -20,7 +20,8 @@ export class FavoritesService {
   listStores(userId: number) {
     return this.favoriteStores.findAll({
       where: { userId },
-      include: [{ model: Store, attributes: ['id', 'name', 'slug', 'logoUrl', 'status'] }],
+      // required: favourites of deleted stores drop out instead of coming back with store: null.
+      include: [{ model: Store, attributes: ['id', 'name', 'slug', 'logoUrl', 'status'], required: true }],
       order: [['createdAt', 'DESC']],
     });
   }
@@ -41,8 +42,12 @@ export class FavoritesService {
       include: [
         {
           model: Product,
-          attributes: ['id', 'name', 'slug', 'price', 'salePrice', 'status', 'storeId'],
-          include: [{ model: ProductImage, where: { isPrimary: true }, required: false }],
+          required: true, // skips favourites of deleted products
+          attributes: ['id', 'name', 'slug', 'price', 'salePrice', 'stock', 'status', 'storeId', 'createdAt'],
+          include: [
+            { model: ProductImage, where: { isPrimary: true }, required: false },
+            { model: Store, attributes: ['id', 'name', 'slug', 'logoUrl', 'status'] },
+          ],
         },
       ],
       order: [['createdAt', 'DESC']],

@@ -1,6 +1,7 @@
-import { BelongsTo, Column, DataType, ForeignKey, Model, Table } from 'sequelize-typescript';
+import { BelongsTo, Column, DataType, ForeignKey, HasMany, Model, Table } from 'sequelize-typescript';
 import { Order } from './order.model';
 import { Product } from './product.model';
+import { ProductReviewReply } from './product-review-reply.model';
 import { User } from './user.model';
 
 @Table({ tableName: 'product_reviews', underscored: true })
@@ -34,4 +35,7 @@ export class ProductReview extends Model {
 
   @BelongsTo(() => Order)
   order?: Order;
+
+  @HasMany(() => ProductReviewReply)
+  replies?: ProductReviewReply[];
 }

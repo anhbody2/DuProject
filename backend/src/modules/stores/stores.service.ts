@@ -1,21 +1,27 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { FindOptions, Includeable, Op, Transaction, WhereOptions, fn, col, literal } from 'sequelize';
+import { FindOptions, Includeable, Op, QueryTypes, Transaction, WhereOptions, fn, col, literal } from 'sequelize';
 import { Sequelize } from 'sequelize-typescript';
+import { textMatch } from '../../common/utils/search';
 import { pageOptions, paginate } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user';
+import { categoryTreeSql } from '../../common/utils/category-tree';
 import { slugify } from '../../common/utils/slugify';
 import {
+  CartItem,
   Category,
+  Product,
   Profile,
   Store,
   StoreLocation,
   StoreMember,
+  StoreOrder,
   StoreReview,
   User,
 } from '../../database/models';
@@ -31,6 +37,17 @@ import {
 } from './dto/store.dto';
 import { ALL_MEMBERS, StoreAccessService } from './store-access.service';
 
+type Row = Record<string, string | number | null>;
+
+const num = (v: unknown) => Number(v ?? 0);
+
+/** Turns `[{ key, count }]` into `{ key: count }`. */
+const countsBy = (rows: Row[], key: string) =>
+  Object.fromEntries(rows.map((r) => [String(r[key]), num(r.count)]));
+
+/** Products at or below this stock show up in the dashboard's low-stock list. */
+const LOW_STOCK = 5;
+
 @Injectable()
 export class StoresService {
   constructor(
@@ -40,6 +57,9 @@ export class StoresService {
     @InjectModel(Category) private readonly categories: typeof Category,
     @InjectModel(StoreReview) private readonly reviews: typeof StoreReview,
     @InjectModel(User) private readonly users: typeof User,
+    @InjectModel(Product) private readonly products: typeof Product,
+    @InjectModel(CartItem) private readonly cartItems: typeof CartItem,
+    @InjectModel(StoreOrder) private readonly storeOrders: typeof StoreOrder,
     private readonly access: StoreAccessService,
     private readonly sequelize: Sequelize,
   ) {}
@@ -54,12 +74,12 @@ export class StoresService {
     const and: unknown[] = [];
     const options: FindOptions = {};
 
-    if (query.q) Object.assign(where, { name: { [Op.iLike]: `%${query.q}%` } });
+    if (query.q) and.push(textMatch('Store.name', query.q));
 
     if (query.categoryId) {
       and.push(
         literal(
-          `EXISTS (SELECT 1 FROM store_categories sc WHERE sc.store_id = "Store"."id" AND sc.category_id = ${Number(query.categoryId)})`,
+          `EXISTS (SELECT 1 FROM store_categories sc WHERE sc.store_id = "Store"."id" AND sc.category_id IN ${categoryTreeSql(query.categoryId)})`,
         ),
       );
     }
@@ -133,6 +153,10 @@ export class StoresService {
         { transaction },
       );
       await this.members.create({ storeId: store.id, userId: user.id, role: 'owner' }, { transaction });
+      // A customer who adds a store becomes a 'member'; other roles are left alone.
+      if (user.role === 'customer') {
+        await this.users.update({ role: 'member' }, { where: { id: user.id }, transaction });
+      }
 
       if (dto.categoryIds?.length) {
         await this.assertCategoriesExist(dto.categoryIds, transaction);
@@ -159,6 +183,93 @@ export class StoresService {
     return this.findDetail(id);
   }
 
+  /**
+   * Owner dashboard for one store (owner / manager only: it shows revenue).
+   * Same shape as the admin stats, scoped to this store's slice of each order.
+   * Money follows the admin definitions (B21): revenue = subtotal of COMPLETED store orders
+   * (food only; the delivery fee is not the store's), in the totals, the daily series and
+   * the top dishes alike; pendingRevenue = store orders still in progress.
+   */
+  async stats(user: AuthUser, storeId: number, days: number) {
+    await this.access.assert(user, storeId);
+    const q = (sql: string, replacements: Record<string, unknown> = {}) =>
+      this.sequelize.query<Row>(sql, { type: QueryTypes.SELECT, replacements: { storeId, ...replacements } });
+
+    const [totals, daily, ordersByStatus, productsByStatus, topProducts, lowStock] = await Promise.all([
+      q(`
+        SELECT
+          (SELECT COUNT(*) FROM store_orders WHERE store_id = :storeId) AS orders,
+          (SELECT COUNT(*) FROM products WHERE store_id = :storeId AND deleted_at IS NULL) AS products,
+          (SELECT COALESCE(SUM(subtotal), 0) FROM store_orders WHERE store_id = :storeId AND status = 'completed') AS revenue,
+          (SELECT COALESCE(SUM(commission_amount), 0) FROM store_orders WHERE store_id = :storeId AND status = 'completed') AS commission,
+          (SELECT COALESCE(SUM(subtotal), 0) FROM store_orders
+             WHERE store_id = :storeId AND status NOT IN ('completed', 'cancelled')) AS pending_revenue,
+          (SELECT COUNT(DISTINCT o.user_id) FROM store_orders so JOIN orders o ON o.id = so.order_id
+             WHERE so.store_id = :storeId AND so.status <> 'cancelled') AS customers,
+          (SELECT COALESCE(AVG(rating), 0) FROM store_reviews WHERE store_id = :storeId) AS rating,
+          (SELECT COUNT(*) FROM store_reviews WHERE store_id = :storeId) AS reviews
+      `),
+      // One row per day, zero-filled, oldest first.
+      q(
+        `
+        SELECT to_char(d.day, 'YYYY-MM-DD') AS date,
+               COUNT(so.id) AS orders,
+               COALESCE(SUM(so.subtotal) FILTER (WHERE so.status = 'completed'), 0) AS revenue
+        FROM generate_series(date_trunc('day', now()) - (:days - 1) * interval '1 day',
+                             date_trunc('day', now()), interval '1 day') AS d(day)
+        LEFT JOIN store_orders so
+          ON so.store_id = :storeId AND so.created_at >= d.day AND so.created_at < d.day + interval '1 day'
+        GROUP BY d.day
+        ORDER BY d.day
+      `,
+        { days },
+      ),
+      q(`SELECT status, COUNT(*) AS count FROM store_orders WHERE store_id = :storeId GROUP BY status`),
+      q(`SELECT status, COUNT(*) AS count FROM products WHERE store_id = :storeId AND deleted_at IS NULL GROUP BY status`),
+      q(`
+        SELECT oi.product_id AS "productId", oi.product_name AS name,
+               SUM(oi.quantity) AS quantity, COALESCE(SUM(oi.subtotal), 0) AS revenue
+        FROM order_items oi
+        JOIN store_orders so ON so.id = oi.store_order_id
+        WHERE so.store_id = :storeId AND so.status = 'completed'
+        GROUP BY oi.product_id, oi.product_name
+        ORDER BY quantity DESC LIMIT 5
+      `),
+      q(
+        `
+        SELECT id, name, stock, status FROM products
+        WHERE store_id = :storeId AND deleted_at IS NULL AND status <> 'inactive' AND stock <= :lowStock
+        ORDER BY stock, name LIMIT 6
+      `,
+        { lowStock: LOW_STOCK },
+      ),
+    ]);
+
+    const t = totals[0];
+    return {
+      totals: {
+        orders: num(t.orders),
+        products: num(t.products),
+        customers: num(t.customers),
+        revenue: num(t.revenue),
+        commission: num(t.commission),
+        pendingRevenue: num(t.pending_revenue),
+        rating: Math.round(num(t.rating) * 10) / 10,
+        reviews: num(t.reviews),
+      },
+      daily: daily.map((r) => ({ date: String(r.date), orders: num(r.orders), revenue: num(r.revenue) })),
+      ordersByStatus: countsBy(ordersByStatus, 'status'),
+      productsByStatus: countsBy(productsByStatus, 'status'),
+      topProducts: topProducts.map((r) => ({
+        productId: r.productId === null ? null : num(r.productId),
+        name: String(r.name),
+        quantity: num(r.quantity),
+        revenue: num(r.revenue),
+      })),
+      lowStock: lowStock.map((r) => ({ id: num(r.id), name: String(r.name), stock: num(r.stock), status: String(r.status) })),
+    };
+  }
+
   async update(user: AuthUser, id: number, dto: UpdateStoreDto) {
     const store = await this.access.assert(user, id);
     if (dto.slug && dto.slug !== store.slug) dto.slug = await this.uniqueSlug(dto.slug);
@@ -166,10 +277,25 @@ export class StoresService {
     return this.findDetail(id);
   }
 
-  /** Only the owner (or an admin) may delete. 409 if the store has order history. */
+  /**
+   * Soft delete, owner (or admin) only. Refused while orders are still in progress;
+   * the store's products go with it and leave every cart. Order history keeps its links.
+   */
   async remove(user: AuthUser, id: number) {
     const store = await this.access.assert(user, id, ['owner']);
-    await store.destroy();
+    const open = await this.storeOrders.count({
+      where: { storeId: id, status: { [Op.notIn]: ['completed', 'cancelled'] } },
+    });
+    if (open) throw new ConflictException(`Store has ${open} order(s) in progress; finish or cancel them first`);
+
+    await this.sequelize.transaction(async (transaction) => {
+      const products = await this.products.findAll({ where: { storeId: id }, attributes: ['id'], transaction });
+      if (products.length) {
+        await this.cartItems.destroy({ where: { productId: products.map((p) => p.id) }, transaction });
+        await this.products.destroy({ where: { storeId: id }, transaction });
+      }
+      await store.destroy({ transaction });
+    });
   }
 
   async updateStatus(id: number, dto: UpdateStoreStatusDto) {
@@ -290,7 +416,8 @@ export class StoresService {
   private async uniqueSlug(base: string, transaction?: Transaction) {
     const root = base || 'store';
     let slug = root;
-    for (let i = 2; await this.stores.count({ where: { slug }, transaction }); i++) {
+    // Deleted stores still hold their slug in the unique index.
+    for (let i = 2; await this.stores.count({ where: { slug }, paranoid: false, transaction }); i++) {
       slug = `${root}-${i}`;
     }
     return slug;

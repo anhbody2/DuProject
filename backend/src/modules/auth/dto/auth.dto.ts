@@ -3,11 +3,14 @@ import {
   IsIn,
   IsNotEmpty,
   IsOptional,
+  IsNumberString,
+  Length,
   IsString,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IsStrongPassword } from '../../../common/decorators/strong-password.decorator';
 
 export class RegisterDto {
   @IsString()
@@ -20,9 +23,7 @@ export class RegisterDto {
   @MaxLength(255)
   email: string;
 
-  @IsString()
-  @MinLength(8)
-  @MaxLength(72)
+  @IsStrongPassword()
   password: string;
 
   /** Self-registration may only choose customer or store_owner. */
@@ -55,4 +56,46 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+}
+
+export class RefreshTokenDto {
+  /** The refreshToken returned by login / register / refresh. */
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(4096)
+  refreshToken: string;
+}
+
+export class GoogleLoginDto {
+  /** The ID token (credential) returned by Google Identity Services. */
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(4096)
+  idToken: string;
+}
+
+export class FacebookLoginDto {
+  /** The user access token returned by the Facebook JS SDK. */
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(4096)
+  accessToken: string;
+}
+
+export class ForgotPasswordDto {
+  @IsEmail()
+  @MaxLength(255)
+  email: string;
+}
+
+export class VerifyResetCodeDto extends ForgotPasswordDto {
+  /** The 6-digit code emailed by POST /auth/forgot-password. */
+  @IsNumberString({ no_symbols: true })
+  @Length(6, 6)
+  code: string;
+}
+
+export class ResetPasswordDto extends VerifyResetCodeDto {
+  @IsStrongPassword()
+  newPassword: string;
 }

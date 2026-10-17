@@ -1,5 +1,5 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -9,20 +9,21 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
+import { IsImageUrl } from '../../../common/decorators/is-image-url.decorator';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
+import { sanitizeRichText } from '../../../common/utils/html';
 import { PRODUCT_STATUSES } from '../../../database/models';
 import type { ProductStatus } from '../../../database/models';
 
 const money = { maxDecimalPlaces: 2 };
 
 export class ProductImageDto {
-  @IsUrl()
+  @IsImageUrl()
   imageUrl: string;
 
   @IsOptional()
@@ -102,9 +103,12 @@ export class CreateProductDto {
   @MaxLength(255)
   slug?: string;
 
+  /** Rich text from the storefront editor; sanitized to its tag whitelist before saving. */
   @IsOptional()
   @IsString()
-  description?: string;
+  @MaxLength(20000)
+  @Transform(({ value }) => sanitizeRichText(value))
+  description?: string | null;
 
   @IsNumber(money)
   @Min(0)
@@ -167,4 +171,16 @@ export class ListProductsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(['newest', 'price_asc', 'price_desc', 'name'])
   sort: 'newest' | 'price_asc' | 'price_desc' | 'name' = 'newest';
+}
+
+/** A store's own catalogue, every status (store members only). */
+export class StoreProductsQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsIn(PRODUCT_STATUSES)
+  status?: ProductStatus;
+
+  /** Matches product name. */
+  @IsOptional()
+  @IsString()
+  q?: string;
 }
