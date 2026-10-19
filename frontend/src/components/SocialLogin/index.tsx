@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
-import { useAppSelector } from '@/redux';
 import { errorMessage, useFacebookLoginMutation, useGoogleLoginMutation, useSocialConfigQuery } from '@/redux/api';
 import type { AuthResponse } from '@/redux/types';
 import { FacebookIcon } from '@/components/ui';
+import { Divider, GoogleFace, GoogleOverlay, Hint, SocialButton, Wrap } from './styles';
 
 // Just the parts of the provider SDKs we call.
 declare global {
@@ -56,7 +55,6 @@ export default function SocialLogin({ onSuccess, onError, disabled }: {
   const { data: config } = useSocialConfigQuery();
   const [googleLogin, { isLoading: g }] = useGoogleLoginMutation();
   const [facebookLogin, { isLoading: f }] = useFacebookLoginMutation();
-  const dark = useAppSelector((s) => s.ui.theme) === 'dark';
   const googleBox = useRef<HTMLDivElement>(null);
   const [fbReady, setFbReady] = useState(false);
   const busy = disabled || g || f;
@@ -83,13 +81,14 @@ export default function SocialLogin({ onSuccess, onError, disabled }: {
         },
       });
       box.replaceChildren();
+      // Invisible (see GoogleOverlay), so it only has to cover our button.
       window.google.accounts.id.renderButton(box, {
-        type: 'standard', theme: dark ? 'filled_black' : 'outline', size: 'large', text: 'continue_with',
-        shape: 'rectangular', locale: 'vi', width: Math.min(box.clientWidth || 400, 400),
+        type: 'standard', size: 'large', text: 'continue_with', shape: 'rectangular',
+        locale: 'vi', width: Math.min(box.clientWidth || 400, 400),
       });
     }).catch(() => handlers.current.onError('Không tải được đăng nhập Google'));
     return () => { cancelled = true; };
-  }, [config?.google, dark]);
+  }, [config?.google]);
 
   // Load the Facebook SDK up front: FB.login must run synchronously in the click,
   // or the browser blocks its popup.
@@ -115,21 +114,27 @@ export default function SocialLogin({ onSuccess, onError, disabled }: {
   return (
     <Wrap aria-busy={busy}>
       <Divider><span>HOẶC</span></Divider>
-      {config?.google ? <GoogleBox ref={googleBox} $busy={!!busy} /> : (
-        <GoogleButton type="button" disabled title="Chưa cấu hình GOOGLE_CLIENT_ID trên server">
+      {config?.google ? (
+        <GoogleFace $busy={!!busy}>
           <GoogleIcon />
-          Tiếp tục với Google
-        </GoogleButton>
+          TIẾP TỤC VỚI GOOGLE
+          <GoogleOverlay ref={googleBox} />
+        </GoogleFace>
+      ) : (
+        <SocialButton type="button" disabled title="Chưa cấu hình GOOGLE_CLIENT_ID trên server">
+          <GoogleIcon />
+          TIẾP TỤC VỚI GOOGLE
+        </SocialButton>
       )}
-      <FacebookButton
+      <SocialButton
         type="button"
         onClick={loginWithFacebook}
         disabled={!config?.facebook || busy || !fbReady}
         title={config?.facebook ? undefined : 'Chưa cấu hình FACEBOOK_APP_ID / FACEBOOK_APP_SECRET trên server'}
       >
-        <FacebookIcon size={18} color="#fff" />
-        Tiếp tục với Facebook
-      </FacebookButton>
+        <FacebookIcon size={20} color="#1877f2" />
+        TIẾP TỤC VỚI FACEBOOK
+      </SocialButton>
       {config && (!config.google || !config.facebook) && <Hint>Đăng nhập mạng xã hội chưa được bật trên server.</Hint>}
     </Wrap>
   );
@@ -143,71 +148,3 @@ const GoogleIcon = () => (
     <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z" />
   </svg>
 );
-
-const Wrap = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-`;
-
-const Divider = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-  &::before, &::after { content: ''; flex: 1; border-top: 2px solid var(--edge); opacity: .25; }
-`;
-
-const GoogleBox = styled.div<{ $busy: boolean }>`
-  display: flex;
-  justify-content: center;
-  min-height: 44px;
-  ${({ $busy }) => $busy && 'pointer-events: none; opacity: .6;'}
-`;
-
-const FacebookButton = styled.button`
-  align-self: center;
-  width: min(100%, 400px);
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border: 0;
-  border-radius: 4px;
-  background: #1877f2; /* Facebook brand colour, required by their button guidelines */
-  color: #fff;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  &:hover:not(:disabled) { background: #166fe5; }
-  &:disabled { opacity: .6; cursor: not-allowed; }
-`;
-
-/** Stand-in for Google's own button (which needs a client id to render). */
-const GoogleButton = styled.button`
-  align-self: center;
-  width: min(100%, 400px);
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border: 1px solid #dadce0;
-  border-radius: 4px;
-  background: #fff;
-  color: #3c4043;
-  font-weight: 600;
-  font-size: 14px;
-  &:disabled { opacity: .6; cursor: not-allowed; }
-`;
-
-const Hint = styled.p`
-  margin: 0;
-  text-align: center;
-  color: var(--muted);
-  font-size: 12px;
-`;
