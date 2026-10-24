@@ -16,7 +16,7 @@ const sha256 = (value: string) => createHash('sha256').update(value).digest('hex
 
 /**
  * Access + refresh tokens.
- * - Access token: short-lived JWT (JWT_SECRET / JWT_EXPIRES_IN), checked by AuthMiddleware.
+ * - Access token: short-lived JWT (JWT_SECRET / JWT_EXPIRES_IN), checked by JwtAuthGuard.
  * - Refresh token: long-lived JWT (JWT_REFRESH_SECRET / JWT_REFRESH_EXPIRES_IN). Only its
  *   SHA-256 is kept in users.refresh_token_hash, one per user: issuing a new pair (login,
  *   refresh, password change/reset) replaces it, so the previous refresh token stops working.

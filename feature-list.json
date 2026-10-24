@@ -1,0 +1,68 @@
+{
+  "project": "Food market place",
+  "last_updated": "2026-10-19",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true
+  },
+  "status_legend": {
+    "not_started": "Work has not begun.",
+    "in_progress": "The feature is the current active task.",
+    "blocked": "Work cannot continue until a documented blocker is resolved.",
+    "passing": "Required verification has passed and evidence is recorded."
+  },
+  "features": [
+    {
+      "id": "FE-NAV-01",
+      "area": "frontend",
+      "section": "Navbar",
+      "title": "Solid red navbar background",
+      "description": "Replace the textured navbar background (redTexture: --red plus --texture and red-texture.png) with a solid colour that matches the red brand theme.",
+      "files": [
+        "frontend/src/components/Header/styles.ts"
+      ],
+      "acceptance_criteria": [
+        "The navbar (Bar) background is a single solid colour from the theme (var(--red)), with no texture image.",
+        "Nav links, logo, icons and the cart badge keep their current colours and stay readable.",
+        "Looks correct in both light and dark mode.",
+        "The mobile drawer (DrawerBody) is unchanged unless agreed otherwise."
+      ],
+      "verification": [
+        "cd frontend && npm run build passes (type-check).",
+        "Visual check on desktop and mobile widths, light and dark mode."
+      ],
+      "depends_on": [],
+      "status": "not_started",
+      "evidence": []
+    },
+    {
+      "id": "FE-NAV-02",
+      "area": "frontend",
+      "section": "Navbar",
+      "title": "Navbar sits at the top, then sticks while scrolling",
+      "description": "Before scrolling, the navbar stays in its normal place at the top of the page. Once the user scrolls down, it sticks to the top of the viewport. It must keep the same height, padding, elements and stacking layer (z-index) as now. A previous attempt lost height and moved the navbar under other layers.",
+      "files": [
+        "frontend/src/components/Header/styles.ts",
+        "frontend/src/components/Header/index.tsx",
+        "frontend/src/App.tsx"
+      ],
+      "acceptance_criteria": [
+        "At scroll position 0 the navbar looks exactly as it does today (same height, padding, layout).",
+        "After scrolling down, the navbar stays fixed at the top of the viewport.",
+        "No layout jump when switching between the two states: page content does not shift up when the navbar becomes sticky.",
+        "The navbar stays above page content (hero sections, cards, maps) and below overlays (cart drawer, nav drawer, search, modals, chat widget).",
+        "Works on desktop and mobile layouts (mq.sm grid layout keeps its height).",
+        "Uses the solid background from FE-NAV-01 so content does not show through while sticky."
+      ],
+      "verification": [
+        "cd frontend && npm run build passes (type-check).",
+        "Manual scroll test on /, /menu, /store/:id and /product/:id at desktop and mobile widths.",
+        "Open the cart drawer, mobile nav drawer and search while scrolled to confirm layering."
+      ],
+      "depends_on": ["FE-NAV-01"],
+      "status": "not_started",
+      "evidence": []
+    }
+  ]
+}

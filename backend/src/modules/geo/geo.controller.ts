@@ -1,12 +1,14 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { AutocompleteQueryDto, PlaceQueryDto, ReverseQueryDto } from './dto/geo.dto';
 import { GeoService } from './geo.service';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('geo')
 export class GeoController {
   constructor(private readonly geo: GeoService) {}
 
   /** Public: tile key for the map + whether address search is enabled. */
+  @Public()
   @Get('config')
   config() {
     return this.geo.config();

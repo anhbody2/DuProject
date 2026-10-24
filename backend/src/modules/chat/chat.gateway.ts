@@ -43,7 +43,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
 
   afterInit(server: Server) {
     this.events.bind(server);
-    // Handshake auth: the same checks as AuthMiddleware (valid JWT, user still exists and is active).
+    // Handshake auth: the same checks as JwtAuthGuard (valid JWT, user still exists and is active).
     server.use((socket, next) => {
       this.authenticate(socket.handshake.auth?.token)
         .then((user) => {

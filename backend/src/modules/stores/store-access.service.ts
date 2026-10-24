@@ -9,7 +9,7 @@ export const ALL_MEMBERS: StoreMemberRole[] = ['owner', 'manager', 'staff'];
 
 /**
  * Store-level authorization (who may manage a specific store). Global roles are
- * handled by the CheckRole middleware; this covers per-store membership.
+ * handled by RolesGuard (@Roles); this covers per-store membership.
  */
 @Injectable()
 export class StoreAccessService {

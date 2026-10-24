@@ -42,12 +42,12 @@ Requests save tokens and IDs as collection variables, so a single folder may dep
 
 ## Architecture
 
-### Auth is middleware, not guards
-Authentication and global-role checks are all wired in one place: `AppModule.configure()` in `backend/src/app.module.ts`.
-- `AuthMiddleware` applies to every controller in `PROTECTED_CONTROLLERS` except the routes in `PUBLIC_ROUTES`. It verifies the JWT, **reloads the user from the DB** (so suspended or deleted users are rejected), and sets `req.user` (read it with `@CurrentUser()`).
-- `CheckRole(...roles)` is a middleware factory, applied per route or controller after auth.
+### Auth is guards
+Two global guards are registered as `APP_GUARD` in `backend/src/app.module.ts` (see `docs/AUTH_GUARDS.md`).
+- `JwtAuthGuard` (`common/guards/`) runs on every HTTP route. It verifies the JWT, **reloads the user from the DB** (so suspended or deleted users are rejected), and sets `req.user` (read it with `@CurrentUser()`). Mark open routes `@Public()`. There, a valid token still sets `req.user`, and a bad or missing one is ignored (no 401).
+- `RolesGuard` enforces `@Roles('admin')` on a handler or controller.
 - Tokens come from `TokenService` (`modules/auth/token.service.ts`): a short access JWT plus a rotating refresh JWT (own secret), whose SHA-256 is the single `users.refresh_token_hash`. `POST /auth/refresh` rotates it, and logout, password change/reset and deactivation revoke it. See `docs/REFRESH_TOKEN_AUTH.md`.
-- **A new controller must be added to `PROTECTED_CONTROLLERS`** (and a new public GET to `PUBLIC_ROUTES`). Otherwise it gets no auth and `req.user` is undefined.
+- New routes are protected automatically. Add `@Public()` for open routes and `@Roles(...)` for admin-only ones; nothing is registered in `AppModule`. Both guards skip non-HTTP contexts.
 
 Per-store authorization (owner / manager / staff via `store_members`) is **not** a global role. Services check it with `StoreAccessService.assert(user, storeId, roles)` in `modules/stores/store-access.service.ts`. Admins and the store owner always pass.
 
@@ -83,5 +83,5 @@ Per-store authorization (owner / manager / staff via `store_members`) is **not**
 ### Chat (`modules/chat/`)
 - Conversations are `direct` (two participant rows) or `support` (one row, the user; all admins may answer, and `staff_read_at` is their shared read marker). Get-or-create is keyed on the unique `conversations.key`.
 - `ChatService.access()` is the single permission check (participant, or admin on a support thread; otherwise 404). REST and socket handlers both go through `ChatService`, which broadcasts via `ChatEvents` (the gateway binds the Socket.IO server into it at start-up), so they behave the same.
-- The gateway lives at `/api/socket.io` (not affected by the global prefix; set in `@WebSocketGateway`). It authenticates in a `server.use` handshake middleware, **not** `AuthMiddleware`, and re-checks the user's status on every event.
+- The gateway lives at `/api/socket.io` (not affected by the global prefix; set in `@WebSocketGateway`). It authenticates in a `server.use` handshake middleware, **not** `JwtAuthGuard`, and re-checks the user's status on every event.
 - Frontend: `lib/chatSocket.ts` holds the tab's one socket, and `ChatSocketSync` folds its events into the RTK Query cache (`mergeMessages` + tag invalidation). `ChatWidget` is mounted outside the routes in `App.tsx`. Read `currentData` (not `data`) for per-conversation queries: `data` keeps the previous conversation while the next loads.

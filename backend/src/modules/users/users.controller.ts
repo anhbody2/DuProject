@@ -12,8 +12,10 @@ import {
 } from '@nestjs/common';
 import { AdminUpdateUserDto, ListUsersQueryDto } from './dto/users.dto';
 import { UsersService } from './users.service';
+import { Roles } from '../../common/decorators/roles.decorator';
 
-/** Admin-only user management (guarded by CheckRole('admin') in AppModule). */
+/** Admin-only user management (@Roles('admin')). */
+@Roles('admin')
 @Controller('users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}

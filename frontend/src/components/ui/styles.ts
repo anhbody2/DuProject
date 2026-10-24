@@ -18,6 +18,24 @@ export const Grid3 = styled.div<{ $gap?: string; $phone2?: boolean }>`
   `}
 `;
 
+/** Up to four equal columns that collapse to one on narrow screens. */
+export const grid4 = css`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(220px, calc((100% - 72px) / 4))), 1fr));
+`;
+
+/** Four-column variant of `Grid3`; `$phone2` keeps two columns on phones, `$min` lowers the 220px column floor so four columns fit narrower screens. */
+export const Grid4 = styled.div<{ $gap?: string; $phone2?: boolean; $min?: number }>`
+  ${grid4};
+  ${(p) => p.$min && css`
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(${p.$min}px, calc((100% - 72px) / 4))), 1fr));
+  `}
+  gap: ${(p) => p.$gap ?? '24px'};
+  ${(p) => p.$phone2 && css`
+    ${mq.xs} { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  `}
+`;
+
 /** Two columns side by side that stack below ~700px. */
 export const Split = styled.div<{ $gap?: string; $min?: number }>`
   display: grid;

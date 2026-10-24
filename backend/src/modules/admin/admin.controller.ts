@@ -6,12 +6,14 @@ import {
   AdminStoresQueryDto,
   StatsQueryDto,
 } from './dto/admin.dto';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 /**
- * Admin dashboard reads (CheckRole('admin') in AppModule). Writes reuse the
+ * Admin dashboard reads (@Roles('admin')). Writes reuse the
  * regular routes: PATCH /users/:id, PATCH /stores/:id/status, PATCH/DELETE
  * /products/:id (admins pass StoreAccessService), PATCH /payments/:id/status ...
  */
+@Roles('admin')
 @Controller('admin')
 export class AdminController {
   constructor(private readonly admin: AdminService) {}

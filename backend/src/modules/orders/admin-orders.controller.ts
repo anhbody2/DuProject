@@ -1,8 +1,10 @@
 import { Body, Controller, Param, ParseIntPipe, Patch } from '@nestjs/common';
 import { UpdateDeliveryDto, UpdatePaymentStatusDto } from './dto/order.dto';
 import { OrdersService } from './orders.service';
+import { Roles } from '../../common/decorators/roles.decorator';
 
-/** Admin-only (CheckRole('admin') in AppModule): payment & delivery operations. */
+/** Admin-only: payment & delivery operations. */
+@Roles('admin')
 @Controller()
 export class AdminOrdersController {
   constructor(private readonly orders: OrdersService) {}

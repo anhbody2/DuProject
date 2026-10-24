@@ -14,6 +14,7 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user';
 import { ChatService } from './chat.service';
 import { MessagesQueryDto, OpenDirectDto, SearchUsersQueryDto, SendMessageDto } from './dto/chat.dto';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('chat')
 export class ChatController {
@@ -78,13 +79,15 @@ export class ChatController {
     return this.chat.searchUsers(user, q);
   }
 
-  /** Admin inbox of support threads (CheckRole('admin') in AppModule). */
+  /** Admin inbox of support threads (@Roles('admin')). */
+  @Roles('admin')
   @Get('support')
   listSupport(@CurrentUser() user: AuthUser, @Query() query: PaginationQueryDto) {
     return this.chat.listSupport(user, query);
   }
 
   /** Admin: contact a user first through their support thread. */
+  @Roles('admin')
   @Post('support/:userId')
   openSupportFor(@CurrentUser() user: AuthUser, @Param('userId', ParseIntPipe) userId: number) {
     return this.chat.openSupportFor(user, userId);

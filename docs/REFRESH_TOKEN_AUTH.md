@@ -15,6 +15,9 @@ Now every login returns **two** tokens:
 | `accessToken` | `JWT_EXPIRES_IN` (default `7d`, recommended `15m`) | `JWT_SECRET` | `Authorization: Bearer …` on every API call and the chat socket | no (stateless) |
 | `refreshToken` | `JWT_REFRESH_EXPIRES_IN` (default `30d`) | `JWT_REFRESH_SECRET` | getting a new pair from `POST /auth/refresh` | SHA-256 hash in `users.refresh_token_hash` |
 
+> Since 2026-10-19 the middlewares named here are global guards (`JwtAuthGuard`, `RolesGuard`), and
+> `PUBLIC_ROUTES` became `@Public()` decorators. See `AUTH_GUARDS.md`.
+
 Authorization didn't change. `AuthMiddleware` still verifies the access token and reloads the user
 on every request, so suspended or deleted accounts are rejected right away. `CheckRole(...)` and
 `StoreAccessService` work as before.

@@ -7,7 +7,7 @@ import type { Product } from '@/redux/types';
 import { useUrlParams } from '@/hooks/useUrlParams';
 import DishCard from '@/components/DishCard';
 import DishFilters, { SORT_KEYS, flattenCategories, type DishFilterValue } from '@/components/DishFilters';
-import { Chip, Container, Empty, Grid3, Muted, RedBand, Reveal, Section, Spinner, StrokeHeading, Tray } from '@/components/ui';
+import { Chip, Container, Empty, Grid4, Muted, RedBand, Reveal, Section, Spinner, StrokeHeading, Tray } from '@/components/ui';
 import { Kicker, CatHead } from './styles';
 
 /**
@@ -29,7 +29,7 @@ function Menu() {
   const { data: tree = [] } = useCategoriesQuery();
   const byId = useMemo(() => flattenCategories(tree), [tree]);
   const { data, isLoading, isFetching, isError } = useProductsQuery({ categoryId, sort, q: q || undefined });
-  const { data: freshData, isLoading: freshLoading } = useProductsQuery({ sort: 'newest', limit: 3 });
+  const { data: freshData, isLoading: freshLoading } = useProductsQuery({ sort: 'newest', limit: 4 });
   const products = useMemo(() => data?.items ?? [], [data]);
   const fresh = freshData?.items ?? [];
 
@@ -53,18 +53,18 @@ function Menu() {
     <div>
       <RedBand clip="polygon(0 0,100% 0,100% calc(100% - 20px),0 calc(100% - 90px))" pad="12px 0 110px">
         <Kicker>MỚI LÊN KỆ</Kicker>
-        <Container>
-          <Grid3 $phone2 style={{ padding: `4px ${GUTTER} 16px` }}>
+        <Container $max={1280}>
+          <Grid4 $phone2 $min={160} style={{ padding: `4px ${GUTTER} 16px` }}>
             {freshLoading ? <Spinner color="var(--gold)" /> : fresh.length ? fresh.map((p, i) => <DishCard key={p.id} p={p} variant="fresh" index={i} />) : (
               <span style={{ color: 'var(--cream)', fontWeight: 700, fontSize: 14 }}>Chưa có món mới.</span>
             )}
-          </Grid3>
+          </Grid4>
         </Container>
       </RedBand>
 
       <Section $pad={`40px ${GUTTER} 80px`} style={{ position: 'relative' }}>
         <Tray rotate={-14} style={{ position: 'absolute', left: -110, top: -10, width: 'clamp(180px,24vw,280px)', zIndex: 0 }} />
-        <Container style={{ position: 'relative' }}>
+        <Container $max={1280} style={{ position: 'relative' }}>
           <Reveal kind="head"><StrokeHeading style={{ marginBottom: 24 }}>THỰC ĐƠN</StrokeHeading></Reveal>
 
           {q && (
@@ -84,7 +84,7 @@ function Menu() {
           ) : sections.map((c) => (
             <div key={c.id} style={{ paddingTop: 28, display: 'flex', flexDirection: 'column', gap: 14, opacity: isFetching ? 0.55 : 1, transition: 'opacity .2s' }}>
               <CatHead><h2>{c.name}</h2><Muted>{c.items.length} món</Muted></CatHead>
-              <Grid3 $phone2>{c.items.map((p, i) => <DishCard key={p.id} p={p} index={i} />)}</Grid3>
+              <Grid4 $phone2 $min={160}>{c.items.map((p, i) => <DishCard key={p.id} p={p} index={i} />)}</Grid4>
             </div>
           ))}
 

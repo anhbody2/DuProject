@@ -27,22 +27,27 @@ import {
   UpdateStoreStatusDto,
 } from './dto/store.dto';
 import { StoresService } from './stores.service';
+import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('stores')
 export class StoresController {
   constructor(private readonly stores: StoresService) {}
 
   // ---- public
+  @Public()
   @Get()
   findAll(@Query() query: ListStoresQueryDto) {
     return this.stores.findAll(query);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.stores.findPublic(id);
   }
 
+  @Public()
   @Get(':id/locations')
   findLocations(@Param('id', ParseIntPipe) id: number) {
     return this.stores.findLocations(id);
@@ -93,7 +98,8 @@ export class StoresController {
     return this.stores.setCategories(user, id, dto.categoryIds);
   }
 
-  // ---- admin (CheckRole in AppModule)
+  // ---- admin
+  @Roles('admin')
   @Patch(':id/status')
   updateStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateStoreStatusDto) {
     return this.stores.updateStatus(id, dto);

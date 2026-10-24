@@ -14,13 +14,13 @@ NestJS + Sequelize + PostgreSQL REST API, with a Next.js storefront, all run by 
 │   │   └── seeders/          # admin user + starter categories
 │   └── src/
 │       ├── common/
-│       │   ├── middlewares/  # auth.middleware.ts, check-role.middleware.ts
-│       │   ├── decorators/   # @CurrentUser()
+│       │   ├── guards/       # jwt-auth.guard.ts, roles.guard.ts (global)
+│       │   ├── decorators/   # @CurrentUser(), @Public(), @Roles()
 │       │   └── filters/      # Sequelize error -> HTTP status
 │       ├── database/models/  # sequelize-typescript models (one per table)
 │       ├── modules/          # auth, users, addresses, categories, stores,
 │       │                     # products, cart, orders, reviews, favorites, health
-│       └── app.module.ts     # middleware route table (public / auth / roles)
+│       └── app.module.ts     # module wiring + global auth guards
 └── frontend/                 # Next.js + Redux Toolkit storefront, proxies /api -> backend
 ```
 
@@ -59,14 +59,14 @@ npm run start:dev
 Migration commands: `db:migrate`, `db:migrate:undo`, `db:migrate:undo:all`, `db:migrate:status`,
 `migration:generate <name>`.
 
-## Middlewares
+## Auth guards
 
-Both middlewares live in `src/common/middlewares` and are wired up in `AppModule.configure()`:
+Both guards live in `src/common/guards` and are registered globally (`APP_GUARD`) in `AppModule`. See `docs/AUTH_GUARDS.md`.
 
-- **`AuthMiddleware`** reads `Authorization: Bearer <jwt>` and verifies it. It then reloads the user, so a suspended or deleted account is rejected right away, and sets `req.user`.
-  It runs on every controller except the routes listed in `PUBLIC_ROUTES`.
-- **`CheckRole(...roles)`** is a middleware factory. It returns 403 unless `req.user.role` is one of the given roles.
-  - `CheckRole('admin')` covers `/users/*`, `/admin/*`, category writes, `PATCH /stores/:id/status`, `PATCH /payments/:id/status`, `PATCH /deliveries/:id`, `GET /chat/support` and `POST /chat/support/:userId`.
+- **`JwtAuthGuard`** reads `Authorization: Bearer <jwt>` and verifies it. It then reloads the user, so a suspended or deleted account is rejected right away, and sets `req.user`.
+  It runs on every route. Routes marked `@Public()` are open; a valid token there still sets `req.user`, and a bad one is ignored.
+- **`RolesGuard`** returns 403 unless `req.user.role` is one of the roles in the route's `@Roles(...)`.
+  - `@Roles('admin')` covers `/users/*`, `/admin/*`, category writes, `PATCH /stores/:id/status`, `PATCH /payments/:id/status`, `PATCH /deliveries/:id`, `GET /chat/support` and `POST /chat/support/:userId`.
   - `POST /stores` is open to any signed-in user. A `customer` who creates a store is promoted to the `member` role in the same transaction.
 
 Access to a specific store is checked in the services by `StoreAccessService`, using `store_members` (owner / manager / staff). The global role can't answer this, because a customer account can also be a staff member of a store.
@@ -183,7 +183,7 @@ There are two kinds of conversation:
 
 Each participant row stores its own `last_read_at`, and unread counts are messages from others after it. Sending a message marks the thread read for the sender. A conversation the caller can't see returns 404.
 
-The realtime part is a Socket.IO server at **`/api/socket.io`** (`modules/chat/chat.gateway.ts`). It sits under `/api`, so the Vite proxy (`ws: true`) and nginx (`location /api/socket.io/`) forward it like any other API request. Clients connect with `io(origin, { path: '/api/socket.io', auth: { token } })`. The handshake runs the same checks as `AuthMiddleware`. Each socket joins `user:<id>`, and admins also join `admins`.
+The realtime part is a Socket.IO server at **`/api/socket.io`** (`modules/chat/chat.gateway.ts`). It sits under `/api`, so the Vite proxy (`ws: true`) and nginx (`location /api/socket.io/`) forward it like any other API request. Clients connect with `io(origin, { path: '/api/socket.io', auth: { token } })`. The handshake runs the same checks as `JwtAuthGuard`. Each socket joins `user:<id>`, and admins also join `admins`.
 
 | Direction | Event | Payload |
 |---|---|---|

@@ -16,12 +16,14 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user';
 import { CreateReplyDto, CreateReviewDto, UpdateReviewDto } from './dto/review.dto';
 import { ReviewsService } from './reviews.service';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller()
 export class ReviewsController {
   constructor(private readonly reviews: ReviewsService) {}
 
   // ---- store reviews
+  @Public()
   @Get('stores/:id/reviews')
   listForStore(@Param('id', ParseIntPipe) id: number, @Query() query: PaginationQueryDto) {
     return this.reviews.listForStore(id, query);
@@ -52,6 +54,7 @@ export class ReviewsController {
   }
 
   // ---- product reviews
+  @Public()
   @Get('products/:id/reviews')
   listForProduct(@Param('id', ParseIntPipe) id: number, @Query() query: PaginationQueryDto) {
     return this.reviews.listForProduct(id, query);

@@ -25,17 +25,20 @@ import {
   UpdateProductImageDto,
 } from './dto/product.dto';
 import { ProductsService } from './products.service';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
   // ---- public
+  @Public()
   @Get()
   findAll(@Query() query: ListProductsQueryDto) {
     return this.products.findAll(query);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.products.findPublic(id);

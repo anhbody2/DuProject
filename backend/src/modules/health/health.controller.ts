@@ -1,6 +1,8 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { Sequelize } from 'sequelize-typescript';
+import { Public } from '../../common/decorators/public.decorator';
 
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(private readonly sequelize: Sequelize) {}

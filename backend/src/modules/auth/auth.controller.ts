@@ -13,6 +13,7 @@ import {
   ResetPasswordDto,
   VerifyResetCodeDto,
 } from './dto/auth.dto';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -22,12 +23,14 @@ export class AuthController {
   ) {}
 
   /** Public */
+  @Public()
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);
   }
 
   /** Public */
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
@@ -35,12 +38,14 @@ export class AuthController {
   }
 
   /** Public. Which social logins are enabled, with the public ids the frontend SDKs need. */
+  @Public()
   @Get('social/config')
   socialConfig() {
     return this.social.config();
   }
 
   /** Public. Exchanges a Google ID token for our own token; creates the account on first use. */
+  @Public()
   @Post('google')
   @HttpCode(HttpStatus.OK)
   async google(@Body() dto: GoogleLoginDto) {
@@ -48,6 +53,7 @@ export class AuthController {
   }
 
   /** Public. Same as auth/google, with a Facebook user access token. */
+  @Public()
   @Post('facebook')
   @HttpCode(HttpStatus.OK)
   async facebook(@Body() dto: FacebookLoginDto) {
@@ -55,6 +61,7 @@ export class AuthController {
   }
 
   /** Public. Always 200 so the response does not reveal which emails are registered. */
+  @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -62,6 +69,7 @@ export class AuthController {
   }
 
   /** Public. Checks the emailed code without using it up. */
+  @Public()
   @Post('verify-reset-code')
   @HttpCode(HttpStatus.OK)
   verifyResetCode(@Body() dto: VerifyResetCodeDto) {
@@ -69,6 +77,7 @@ export class AuthController {
   }
 
   /** Public. Sets the new password and logs the user in. */
+  @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   resetPassword(@Body() dto: ResetPasswordDto) {
@@ -76,6 +85,7 @@ export class AuthController {
   }
 
   /** Public. `{ refreshToken }` -> new `{ accessToken, refreshToken, user }`; 401 if reused, revoked or expired. */
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: RefreshTokenDto) {
@@ -83,6 +93,7 @@ export class AuthController {
   }
 
   /** Public. Revokes the refresh token; the access token simply expires. */
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   logout(@Body() dto: RefreshTokenDto) {

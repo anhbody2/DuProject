@@ -1,6 +1,6 @@
 import type { UserRole } from '../../database/models';
 
-/** The authenticated user attached to `req.user` by AuthMiddleware. */
+/** The authenticated user attached to `req.user` by JwtAuthGuard. */
 export interface AuthUser {
   id: number;
   username: string;
