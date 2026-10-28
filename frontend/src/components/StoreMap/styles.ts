@@ -50,3 +50,14 @@ export const Directions = styled.a`
     padding: 6px 10px;
   }
 `;
+
+export const PopupAction = styled.button`
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--btn);
+  border: 0;
+  padding: 6px 10px;
+  cursor: pointer;
+`;

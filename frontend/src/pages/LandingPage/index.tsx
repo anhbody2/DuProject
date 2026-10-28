@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { GUTTER } from '@/theme/tokens';
-import { dishHref, fmt, priceOf } from '@/lib/format';
+import { dishHref, fmt, imageOf, priceOf } from '@/lib/format';
 import { useProductsQuery } from '@/redux/api';
 import DishCard from '@/components/DishCard';
 import { Container, CreamWord, Cta, Empty, FillImg, GoldWord, Grid3, InkButton, Parallax, RedBand, Reveal, Spinner, TextButton, Tray } from '@/components/ui';
@@ -15,6 +15,9 @@ export default function LandingPage() {
   const today = products.slice(0, 3);
   const [oracleId, setOracleId] = useState<number | null>(null);
   const oracle = products.find((p) => p.id === oracleId);
+  const dishImg = oracle && imageOf(oracle);
+  const oracleImg = dishImg || '/assets/badge-song-khoe.png';
+  const [loadedImg, setLoadedImg] = useState<string | null>(null);
 
   const askOracle = () => {
     if (!products.length) return;
@@ -55,7 +58,14 @@ export default function LandingPage() {
       <Oracle>
         <OracleGrid>
           <Reveal kind="pop" style={{ position: 'relative', aspectRatio: '4/3', border: '3px solid var(--cream)' }}>
-            <FillImg src="/images/green-band.webp" alt="Cơm phần" $fit="cover" loading="lazy" />
+            <FillImg src={oracleImg} alt={oracle?.name ?? 'For real sống khỏe'} $fit={dishImg ? 'cover' : 'contain'} loading="lazy"
+              onLoad={() => setLoadedImg(oracleImg)} onError={() => setLoadedImg(oracleImg)}
+              style={{ opacity: loadedImg === oracleImg ? 1 : 0, transition: 'opacity .25s' }} />
+            {loadedImg !== oracleImg && (
+              <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+                <Spinner color="var(--cream)" />
+              </div>
+            )}
           </Reveal>
           <Centered style={{ alignItems: 'flex-start' }}>
             <Reveal kind="head">

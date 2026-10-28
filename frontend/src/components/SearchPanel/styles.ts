@@ -11,6 +11,9 @@ export const Panel = styled(motion.div)`
   border-bottom: 3px solid var(--edge);
   padding: 20px ${GUTTER} 24px;
   box-shadow: 0 10px 0 var(--shadow);
+  /* It sticks under the navbar, so long results scroll inside it. */
+  max-height: calc(100dvh - var(--header-h, 0px));
+  overflow-y: auto;
 `;
 
 export const SearchBox = styled.div`

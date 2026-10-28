@@ -20,7 +20,8 @@ html { background: #f6f4de; }
 html[data-theme='dark'] { background: #17100f; }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; font-family: var(--font); overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+/* clip, not hidden: hidden makes body a scroll container, which breaks position: sticky (navbar, filters). */
+html, body { margin: 0; font-family: var(--font); overflow-x: hidden; overflow-x: clip; -webkit-tap-highlight-color: transparent; }
 a { color: var(--green-text); text-decoration: none; }
 a:hover { color: var(--red-text); }
 input, select, textarea, button { font-family: inherit; color: inherit; }

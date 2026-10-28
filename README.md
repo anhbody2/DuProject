@@ -39,7 +39,17 @@ docker compose up -d --build
 
 When the backend container starts it runs `sequelize-cli db:migrate`, then `db:seed:all`, then starts the API.
 Seeders are tracked in `sequelize_data`, so they run only once.
-Default admin: **admin / Admin@123** (set this with `ADMIN_*` env vars).
+Default admin: **admin123@gmail.com / 1234568@A** (set this with `ADMIN_*` env vars).
+
+Demo data (seeder `20261026000001-demo-stores.js`, password `1234568@A` for every owner). Dish photos come from `backend/database/seed-images/` (PNGs extracted from `store-img/*.svg`) and are copied into the uploads volume when seeding:
+
+| Store | Owner login | Address |
+|---|---|---|
+| Bún Cô Dung | dungcao1997@gmail.com | 213 Xô Viết Nghệ Tĩnh, Đà Nẵng |
+| Xôi Bà Mười | muoimuoi123@gmai.com | 3 Quang Trung, Đà Nẵng |
+| Cơm Nhà Dủ | du@gmail.com | 12 Trần Văn Dư, Đà Nẵng |
+
+To wipe all data and uploads and seed again: `docker compose stop backend && docker compose run --rm --no-deps backend npm run db:reset && docker compose up -d backend` (or `npm run db:reset` in `backend/` for a local DB).
 
 Maps and address search use [VietMap](https://maps.vietmap.vn) when configured: `VIETMAP_API_KEY` (server only, for autocomplete / place / reverse geocoding) and `VIETMAP_TILE_KEY` (sent to browsers for map tiles; restrict it to your domain). Without them the maps use Esri tiles and addresses are typed by hand. Addresses use Vietnam's 2-level units since 2025-07-01 (ward -> province); `district` is kept only on older rows.
 

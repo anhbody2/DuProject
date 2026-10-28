@@ -15,8 +15,13 @@ export const Crumbs = styled.nav`
   span:last-child { color: var(--text); }
 `;
 
+// Square, but capped so it doesn't fill a whole column on wide screens or when the
+// layout drops to one column.
 export const MainPhoto = styled.div`
   position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
   aspect-ratio: 1 / 1;
   background: var(--surface);
   padding: 10px;
@@ -26,7 +31,8 @@ export const MainPhoto = styled.div`
 export const Thumbs = styled.div`
   display: flex;
   gap: 10px;
-  margin-top: 12px;
+  max-width: 440px;
+  margin: 12px auto 0;
   overflow-x: auto;
 `;
 
@@ -123,7 +129,7 @@ export const Toolbar = styled.div`
   border-bottom: 2px solid var(--edge);
   background: var(--surface);
   position: sticky;
-  top: 0;
+  top: var(--header-h, 0px);
   z-index: 1;
 `;
 

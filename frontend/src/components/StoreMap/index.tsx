@@ -1,10 +1,10 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
 import { MapContainer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { DEFAULT_CENTER, primaryLocation } from '@/lib/format';
 import MapTiles from './MapTiles';
 import type { Store } from '@/redux/types';
-import { PopupBody, PopupKicker, PopupName, PopupAddress, PopupQuote, PopupFoot, Directions } from './styles';
+import { PopupBody, PopupKicker, PopupName, PopupAddress, PopupQuote, PopupFoot, Directions, PopupAction } from './styles';
 
 const pin = (bg: string, glyph: string) =>
   L.divIcon({
@@ -40,17 +40,44 @@ function ClickToPick({ onPick }: { onPick?: (latlng: [number, number]) => void }
   return null;
 }
 
+/** The new store's pin; with `onPickedClick` it pops up like a saved store, opening on every drop. */
+function PickedPin({ picked, onPickedClick }: { picked: [number, number]; onPickedClick?: () => void }) {
+  const ref = useRef<L.Marker | null>(null);
+  useEffect(() => {
+    if (onPickedClick) ref.current?.openPopup();
+  }, [picked[0], picked[1], onPickedClick]);
+  return (
+    <Marker ref={ref} position={picked} icon={pin('#2b1d2a', '+')} interactive={!!onPickedClick}>
+      {onPickedClick && (
+        <Popup maxWidth={270}>
+          <PopupBody>
+            <PopupKicker>VỊ TRÍ QUÁN MỚI</PopupKicker>
+            <PopupName>Quán ruột của bạn ở đây?</PopupName>
+            <PopupAddress>{picked[0].toFixed(5)}, {picked[1].toFixed(5)}</PopupAddress>
+            <PopupQuote>Bấm chỗ khác trên bản đồ để dời ghim.</PopupQuote>
+            <PopupFoot>
+              <PopupAction type="button" onClick={onPickedClick}>Điền thông tin quán →</PopupAction>
+            </PopupFoot>
+          </PopupBody>
+        </Popup>
+      )}
+    </Marker>
+  );
+}
+
 export interface StoreMapProps {
   stores: Store[];
   focusId?: number;
   /** Location being chosen for a new store (shown as a dark pin). */
   picked?: [number, number] | null;
   onPick?: (latlng: [number, number]) => void;
+  /** Click on the picked pin (e.g. jump to the new-store form). */
+  onPickedClick?: () => void;
   /** CSS height of the map. */
   height?: string;
 }
 
-export default function StoreMap({ stores, focusId, picked, onPick, height = 'clamp(320px,42vw,460px)' }: StoreMapProps) {
+export default function StoreMap({ stores, focusId, picked, onPick, onPickedClick, height = 'clamp(320px,42vw,460px)' }: StoreMapProps) {
   const located = useMemo(
     () => stores.map((s) => ({ s, loc: primaryLocation(s) })).filter((x): x is { s: Store; loc: NonNullable<ReturnType<typeof primaryLocation>> } => !!x.loc),
     [stores],
@@ -87,7 +114,7 @@ export default function StoreMap({ stores, focusId, picked, onPick, height = 'cl
           </Popup>
         </Marker>
       ))}
-      {picked && <Marker position={picked} icon={pin('#2b1d2a', '+')} />}
+      {picked && <PickedPin picked={picked} onPickedClick={onPickedClick} />}
     </MapContainer>
   );
 }

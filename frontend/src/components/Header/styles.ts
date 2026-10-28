@@ -3,8 +3,17 @@ import styled, { css } from 'styled-components';
 import { GUTTER, mq } from '@/theme/tokens';
 import { redTexture } from '@/components/ui';
 
+/** Sticks to the top once the page scrolls; it stays in the flow, so nothing jumps. */
+export const Top = styled.div`
+  position: sticky;
+  top: 0;
+  z-index: 5;
+`;
+
+/** Solid brand red (no texture image); --texture still dims it in dark mode. */
 export const Bar = styled.header`
-  ${redTexture};
+  background-color: var(--red);
+  background-image: var(--texture);
   position: relative;
   z-index: 5;
   padding: 18px ${GUTTER};

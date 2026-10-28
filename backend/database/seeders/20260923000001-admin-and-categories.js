@@ -3,25 +3,20 @@
 const bcrypt = require('bcryptjs');
 
 const CATEGORIES = [
-  { name: 'Vietnamese', slug: 'vietnamese' },
-  { name: 'Fast Food', slug: 'fast-food' },
-  { name: 'Drinks', slug: 'drinks' },
-  { name: 'Desserts', slug: 'desserts' },
-];
-
-const CHILD_CATEGORIES = [
-  { parent: 'vietnamese', name: 'Pho', slug: 'pho' },
-  { parent: 'vietnamese', name: 'Banh Mi', slug: 'banh-mi' },
-  { parent: 'drinks', name: 'Coffee', slug: 'coffee' },
-  { parent: 'drinks', name: 'Milk Tea', slug: 'milk-tea' },
+  { name: 'Cơm', slug: 'com' },
+  { name: 'Bún', slug: 'bun' },
+  { name: 'Xôi', slug: 'xoi' },
+  { name: 'Bánh mì', slug: 'banh-mi' },
+  { name: 'Đồ ăn vặt', slug: 'do-an-vat' },
+  { name: 'Nước', slug: 'nuoc' },
 ];
 
 module.exports = {
   async up(queryInterface) {
     const now = new Date();
-    const username = process.env.ADMIN_USERNAME || 'admin';
-    const email = (process.env.ADMIN_EMAIL || 'admin@example.com').toLowerCase();
-    const password = process.env.ADMIN_PASSWORD || 'Admin@123';
+    const username = process.env.ADMIN_USERNAME || 'admin123';
+    const email = (process.env.ADMIN_EMAIL || 'admin123@gmail.com').toLowerCase();
+    const password = process.env.ADMIN_PASSWORD || '1234568@A';
 
     await queryInterface.sequelize.transaction(async (transaction) => {
       const [admin] = await queryInterface.bulkInsert(
@@ -45,20 +40,9 @@ module.exports = {
         { transaction },
       );
 
-      const parents = await queryInterface.bulkInsert(
-        'categories',
-        CATEGORIES.map((c) => ({ ...c, created_at: now, updated_at: now })),
-        { transaction, returning: ['id', 'slug'] },
-      );
-      const parentIds = Object.fromEntries(parents.map((p) => [p.slug, p.id]));
       await queryInterface.bulkInsert(
         'categories',
-        CHILD_CATEGORIES.map(({ parent, ...c }) => ({
-          ...c,
-          parent_id: parentIds[parent],
-          created_at: now,
-          updated_at: now,
-        })),
+        CATEGORIES.map((c) => ({ ...c, created_at: now, updated_at: now })),
         { transaction },
       );
     });
@@ -67,10 +51,10 @@ module.exports = {
   async down(queryInterface) {
     const { Op } = require('sequelize');
     await queryInterface.bulkDelete('categories', {
-      slug: { [Op.in]: [...CHILD_CATEGORIES, ...CATEGORIES].map((c) => c.slug) },
+      slug: { [Op.in]: CATEGORIES.map((c) => c.slug) },
     });
     await queryInterface.bulkDelete('users', {
-      email: (process.env.ADMIN_EMAIL || 'admin@example.com').toLowerCase(),
+      email: (process.env.ADMIN_EMAIL || 'admin123@gmail.com').toLowerCase(),
     });
   },
 };

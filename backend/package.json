@@ -15,6 +15,7 @@
     "db:migrate:undo:all": "sequelize-cli db:migrate:undo:all",
     "db:migrate:status": "sequelize-cli db:migrate:status",
     "db:seed": "sequelize-cli db:seed:all",
+    "db:reset": "node database/reset.js && npm run db:migrate && npm run db:seed",
     "migration:generate": "sequelize-cli migration:generate --name"
   },
   "dependencies": {

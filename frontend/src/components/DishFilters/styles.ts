@@ -4,7 +4,7 @@ import { GUTTER, mq } from '@/theme/tokens';
 export const FilterBar = styled.div<{ $sticky?: boolean }>`
   ${(p) => p.$sticky && css`
     position: sticky;
-    top: 0;
+    top: var(--header-h, 0px);
     z-index: 4;
     background: var(--bg);
   `}

@@ -35,8 +35,7 @@ function Layout() {
 
   return (
     <>
-      <Header />
-      <SearchPanel />
+      <Header><SearchPanel /></Header>
       <main>
         <Suspense fallback={<Spinner />}><Outlet /></Suspense>
       </main>
